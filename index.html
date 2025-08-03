@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Interactive Climate Data Explorer</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <style>
+        body { background: #f8f9fa; }
+        #chart-container { width: 100%; max-width: 700px; margin: auto; }
+        @media (prefers-color-scheme: dark) {
+            body { background: #1a1a1a; color: white; }
+            .bg-light { background-color: #222 !important; }
+            .form-control, .form-select { background-color: #444; color: #fff; }
+            .card { background-color: #2a2a2a; }
+        }
+    </style>
+</head>
+<body>
+<div class="container my-4">
+    <h1 class="mb-4">Interactive Climate Data Explorer</h1>
+
+    <div class="card p-4 mb-4">
+        <div class="row">
+            <div class="col-md-4 mb-2">
+                <label>Select Column</label>
+                <select id="columnSelect" class="form-select"></select>
+            </div>
+            <div class="col-md-4 mb-2">
+                <label>Filter by Year</label>
+                <select id="yearSelect" class="form-select"><option value="">All Years</option></select>
+            </div>
+            <div class="col-md-4 mb-2">
+                <label>Chart Type</label>
+                <select id="chartType" class="form-select">
+                    <option value="line">Line</option>
+                    <option value="bar">Bar</option>
+                </select>
+            </div>
+        </div>
+    </div>
+
+    <div class="card mb-4 p-4">
+        <input type="file" id="fileInput" class="form-control mb-2"/>
+        <button class="btn btn-primary" onclick="loadDefaultData()">Use Sample Data</button>
+        <span id="status" class="ms-2"></span>
+    </div>
+
+    <div id="chart-container" class="mb-4">
+        <canvas id="climateChart"></canvas>
+    </div>
+
+    <div>
+        <h5>Data Table</h5>
+        <div style="max-height:300px; overflow:auto">
+            <table class="table table-sm table-bordered" id="climateTable"></table>
+        </div>
+    </div>
+</div>
+
+<script>
+// GLOBALS
+let climateData = [];
+let chart = null;
+
+// Try to determine numeric columns
+function getPossibleColumns(data) {
+    const first = data[0];
+    return Object.keys(first).filter(k => !isNaN(parseFloat(first[k])) && k !== "Station ID");
+}
+
+function populateControls() {
+    // Populate columns
+    const select = document.getElementById('columnSelect');
+    select.innerHTML = "";
+    getPossibleColumns(climateData).forEach(col => {
+        const option = document.createElement('option');
+        option.value = col;
+        option.textContent = col;
+        select.appendChild(option);
+    });
+    // Populate years
+    const years = Array.from(new Set(climateData.map(r => r["Date/Time"].split('-')[0]))).sort();
+    const yearSelect = document.getElementById('yearSelect');
+    yearSelect.innerHTML = '<option value="">All Years</option>';
+    years.forEach(y => {
+        const option = document.createElement('option');
+        option.value = y;
+        option.textContent = y;
+        yearSelect.appendChild(option);
+    });
+}
+
+// Show table of filtered data (max 100)
+function showTable(data) {
+    const table = document.getElementById('climateTable');
+    table.innerHTML = "";
+    if(!data.length) return;
+    const columns = Object.keys(data[0]);
+    const trHead = document.createElement('tr');
+    columns.forEach(c=>trHead.innerHTML += `<th>${c}</th>`);
+    table.appendChild(trHead);
+    data.slice(0,100).forEach(row=>{
+        const tr = document.createElement('tr');
+        columns.forEach(c=>tr.innerHTML += `<td>${row[c]}</td>`);
+        table.appendChild(tr);
+    });
+}
+
+// Create chart
+function drawChart(col, year, type="line") {
+    let data = climateData;
+    if(year) data = data.filter(r => r["Date/Time"].split('-')[0] === year);
+    const labels = data.map(r=>r["Date/Time"]);
+    const values = data.map(r=>parseFloat(r[col]) || null);
+    // Filter out null values
+    let filteredLabels = [], filteredValues = [];
+    for(let i=0;i<values.length;i++){
+        if(values[i]!==null){ filteredLabels.push(labels[i]); filteredValues.push(values[i]); }
+    }
+    if(chart) chart.destroy();
+    chart = new Chart(document.getElementById('climateChart').getContext('2d'), {
+        type: type,
+        data: {labels: filteredLabels, datasets: [{
+            label: col,
+            data: filteredValues,
+            fill: false,
+            borderColor: "#007bff",
+            backgroundColor: "#007bff",
+            tension: 0.25,
+        }]},
+        options: {
+            responsive:true,
+            plugins: {
+                legend:{display:true}
+            },
+            scales: {
+                x: {ticks: {maxTicksLimit: 24}},
+                y: {beginAtZero:false}
+            }
+        }
+    });
+}
+
+// Event handlers for inputs
+document.getElementById('columnSelect').addEventListener('change', ()=>updateViz());
+document.getElementById('yearSelect').addEventListener('change', ()=>updateViz());
+document.getElementById('chartType').addEventListener('change', ()=>updateViz());
+
+function updateViz() {
+    const col = document.getElementById('columnSelect').value;
+    const year = document.getElementById('yearSelect').value;
+    const chartType = document.getElementById('chartType').value;
+    if(!col) return;
+    drawChart(col, year, chartType);
+    let data = climateData;
+    if(year) data = data.filter(r => r["Date/Time"].split('-')[0] === year);
+    showTable(data);
+}
+
+// CSV loading
+document.getElementById('fileInput').addEventListener('change', function(e){
+    const file = e.target.files[0];
+    if(!file) return;
+    document.getElementById('status').textContent = "Loading...";
+    Papa.parse(file, {
+        header:true,
+        skipEmptyLines:true,
+        complete: results => {
+            climateData = results.data;
+            populateControls();
+            updateViz();
+            document.getElementById('status').textContent = "Loaded!";
+        }
+    });
+});
+
+// Load sample (expecting Gander_daily_data.csv in root)
+function loadDefaultData() {
+    document.getElementById('status').textContent = "Loading sample...";
+    Papa.parse('Gander_daily_data.csv', {
+        header:true,
+        download:true,
+        skipEmptyLines:true,
+        complete: results => {
+            climateData = results.data;
+            populateControls();
+            updateViz();
+            document.getElementById('status').textContent = "Sample loaded!";
+        }
+    });
+}
+
+</script>
+</body>
+</html>
