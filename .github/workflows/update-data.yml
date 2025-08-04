@@ -2,8 +2,8 @@ name: Daily Data Fetch and Update
 
 on:
   schedule:
-    # Runs at 1:00 AM UTC every day. Adjust as needed.
-    - cron: '0 1 * * *'
+    # Runs at 18:00 UTC every day. Adjust as needed.
+    - cron: '0 18 * * *'
   workflow_dispatch:  # Allows manual runs from the GitHub UI
 
 jobs:
@@ -26,4 +26,4 @@ jobs:
 
     - name: Run data fetch and update script
       run: |
-        python fetch_and_update_data.py
+        python scripts/fetch_and_update_data.py
