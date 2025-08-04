@@ -1,0 +1,16 @@
+pandas
+seaborn
+io
+requests
+matplotlib.pyplot
+calendar
+re
+os
+sys
+numpy
+datetime
+tabulate
+scipy
+glob
+concurrent.futures
+heapq
