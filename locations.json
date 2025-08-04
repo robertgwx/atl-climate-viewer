@@ -1,0 +1,218 @@
+{
+  "NB": [
+    {
+      "label": "Bathurst",
+      "file": "climate_data/NB/Bathurst_daily_data.csv"
+    },
+    {
+      "label": "Edmundston",
+      "file": "climate_data/NB/Edmundston_daily_data.csv"
+    },
+    {
+      "label": "Fredericton",
+      "file": "climate_data/NB/Fredericton_daily_data.csv"
+    },
+    {
+      "label": "Grand Manan",
+      "file": "climate_data/NB/Grand Manan_daily_data.csv"
+    },
+    {
+      "label": "Miramichi",
+      "file": "climate_data/NB/Miramichi_daily_data.csv"
+    },
+    {
+      "label": "Moncton",
+      "file": "climate_data/NB/Moncton_daily_data.csv"
+    },
+    {
+      "label": "Saint John",
+      "file": "climate_data/NB/Saint John_daily_data.csv"
+    },
+    {
+      "label": "St. Stephen",
+      "file": "climate_data/NB/St. Stephen_daily_data.csv"
+    }
+  ],
+  "NL": [
+    {
+      "label": "Badger",
+      "file": "climate_data/NL/Badger_daily_data.csv"
+    },
+    {
+      "label": "Bonavista",
+      "file": "climate_data/NL/Bonavista_daily_data.csv"
+    },
+    {
+      "label": "Burgeo",
+      "file": "climate_data/NL/Burgeo_daily_data.csv"
+    },
+    {
+      "label": "Cape Race",
+      "file": "climate_data/NL/Cape Race_daily_data.csv"
+    },
+    {
+      "label": "Cartwright",
+      "file": "climate_data/NL/Cartwright_daily_data.csv"
+    },
+    {
+      "label": "Churchill Falls",
+      "file": "climate_data/NL/Churchill Falls_daily_data.csv"
+    },
+    {
+      "label": "Corner Brook",
+      "file": "climate_data/NL/Corner Brook_daily_data.csv"
+    },
+    {
+      "label": "Daniel's Harbour",
+      "file": "climate_data/NL/Daniels Harbour_daily_data.csv"
+    },
+    {
+      "label": "Deer Lake",
+      "file": "climate_data/NL/Deer Lake_daily_data.csv"
+    },
+    {
+      "label": "Englee",
+      "file": "climate_data/NL/Englee_daily_data.csv"
+    },
+    {
+      "label": "Gander",
+      "file": "climate_data/NL/Gander_daily_data.csv"
+    },
+    {
+      "label": "Goose Bay",
+      "file": "climate_data/NL/Goose Bay_daily_data.csv"
+    },
+    {
+      "label": "Grates Cove",
+      "file": "climate_data/NL/Grates Cove_daily_data.csv"
+    },
+    {
+      "label": "Makkovik",
+      "file": "climate_data/NL/Makkovik_daily_data.csv"
+    },
+    {
+      "label": "Mary's Harbour",
+      "file": "climate_data/NL/Marys Harbour_daily_data.csv"
+    },
+    {
+      "label": "Millertown",
+      "file": "climate_data/NL/Millertown_daily_data.csv"
+    },
+    {
+      "label": "Nain",
+      "file": "climate_data/NL/Nain_daily_data.csv"
+    },
+    {
+      "label": "Port Aux Basques",
+      "file": "climate_data/NL/Port Aux Basques_daily_data.csv"
+    },
+    {
+      "label": "Red Bay",
+      "file": "climate_data/NL/Red Bay_daily_data.csv"
+    },
+    {
+      "label": "St. Anthony",
+      "file": "climate_data/NL/St. Anthony_daily_data.csv"
+    },
+    {
+      "label": "St. John's",
+      "file": "climate_data/NL/St. John_s_daily_data.csv"
+    },
+    {
+      "label": "Stephenville",
+      "file": "climate_data/NL/Stephenville_daily_data.csv"
+    },
+    {
+      "label": "Terra Nova",
+      "file": "climate_data/NL/Terra Nova_daily_data.csv"
+    },
+    {
+      "label": "Twillingate",
+      "file": "climate_data/NL/Twillingate_daily_data.csv"
+    },
+    {
+      "label": "Wabush",
+      "file": "climate_data/NL/Wabush_daily_data.csv"
+    },
+    {
+      "label": "Wreckhouse",
+      "file": "climate_data/NL/Wreckhouse_daily_data.csv"
+    }
+  ],
+  "NS": [
+    {
+      "label": "Baccaro",
+      "file": "climate_data/NS/Baccaro_daily_data.csv"
+    },
+    {
+      "label": "Beaver Island",
+      "file": "climate_data/NS/Beaver Island_daily_data.csv"
+    },
+    {
+      "label": "Brier Island",
+      "file": "climate_data/NS/Brier Island_daily_data.csv"
+    },
+    {
+      "label": "Caribou Point",
+      "file": "climate_data/NS/Caribou Point_daily_data.csv"
+    },
+    {
+      "label": "Cheticamp",
+      "file": "climate_data/NS/Cheticamp_daily_data.csv"
+    },
+    {
+      "label": "Debert",
+      "file": "climate_data/NS/Debert_daily_data.csv"
+    },
+    {
+      "label": "Grand Etang",
+      "file": "climate_data/NS/Grand Etang_daily_data.csv"
+    },
+    {
+      "label": "Greenwood",
+      "file": "climate_data/NS/Greenwood_daily_data.csv"
+    },
+    {
+      "label": "Halifax",
+      "file": "climate_data/NS/Halifax_daily_data.csv"
+    },
+    {
+      "label": "Kentville",
+      "file": "climate_data/NS/Kentville_daily_data.csv"
+    },
+    {
+      "label": "Port Hawkesbury",
+      "file": "climate_data/NS/Port Hawkesbury_daily_data.csv"
+    },
+    {
+      "label": "Shearwater",
+      "file": "climate_data/NS/Shearwater_daily_data.csv"
+    },
+    {
+      "label": "Sydney",
+      "file": "climate_data/NS/Sydney_daily_data.csv"
+    },
+    {
+      "label": "Yarmouth",
+      "file": "climate_data/NS/Yarmouth_daily_data.csv"
+    }
+  ],
+  "PEI": [
+    {
+      "label": "Charlottetown",
+      "file": "climate_data/PEI/Charlottetown_daily_data.csv"
+    },
+    {
+      "label": "East Point",
+      "file": "climate_data/PEI/East Point_daily_data.csv"
+    },
+    {
+      "label": "North Cape",
+      "file": "climate_data/PEI/North Cape_daily_data.csv"
+    },
+    {
+      "label": "Summerside",
+      "file": "climate_data/PEI/Summerside_daily_data.csv"
+    }
+  ]
+}
