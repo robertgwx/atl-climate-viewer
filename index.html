@@ -245,7 +245,7 @@ function fetchData(filename) {
 // NEW: Dynamically populate the variable selector based on numeric columns
 function populateVariableSelector(headers, firstRow) {
     elements.findVar.innerHTML = '';
-    const nonNumericHeaders = ['Date/Time', 'Year', 'Month', 'Day']; // Headers to ignore
+    const nonNumericHeaders = ['Date/Time', 'Year', 'Month', 'Day', 'Station ID']; // Headers to ignore
     if (!firstRow) return;
 
     headers.forEach(header => {
