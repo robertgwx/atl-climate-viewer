@@ -21,7 +21,7 @@
 </head>
 <body>
 <div class="container my-4">
-    <h1 class="mb-4">Climate Data Explorer - Atlantic Canada</h1>
+    <h1 class="mb-4">Climate Data Explorer</h1>
     <div class="card p-3 mb-3">
         <!-- Main Controls -->
         <div class="row g-2">
@@ -33,19 +33,15 @@
                 <label for="analysisType" class="form-label">Analysis Type</label>
                 <select id="analysisType" class="form-select">
                     <option value="max">Max Temperature (Year)</option>
-                    <option value="count-above">Count Temp ≥ X (Year)</option>
+                    <option value="count-occurrences">Count Occurrences</option> <!-- MODIFIED -->
                     <option value="frost-dates">First/Last Frost (Year)</option>
                     <option value="last-date">Find Last Date of Condition</option>
-                    <option value="find-max-min">Find Max/Min of Variable</option> <!-- NEW -->
+                    <option value="find-max-min">Find Max/Min of Variable</option>
                 </select>
             </div>
             <div class="col-md-2" id="yearInputContainer">
                 <label for="yearInput" class="form-label">Year</label>
                 <input id="yearInput" type="number" class="form-control" placeholder="e.g. 2023">
-            </div>
-            <div class="col-md-2 d-none" id="thresholdDiv">
-                <label for="thresholdInput" class="form-label">Threshold (°C)</label>
-                <input id="thresholdInput" type="number" class="form-control" value="30">
             </div>
         </div>
 
@@ -67,35 +63,26 @@
             <div class="col-md-2">
                 <input id="lastDateVal" type="number" class="form-control" value="30">
             </div>
+            <div class="col-md-2">
+                <button id="findPrevBtn" class="btn btn-secondary w-100 d-none">Find Previous</button>
+            </div>
         </div>
 
-        <!-- NEW: Conditional Input for Find Max/Min Feature -->
+        <!-- Conditional Input for Find Max/Min Feature -->
         <div class="row g-2 mt-1 d-none" id="findMaxMinDiv">
-            <div class="col-md-3">
-                <label for="findVar" class="form-label">Variable</label>
-                <select id="findVar" class="form-select"></select>
-            </div>
-            <div class="col-md-2">
-                <label for="findType" class="form-label">Find</label>
-                <select id="findType" class="form-select">
-                    <option value="max">Maximum</option>
-                    <option value="min">Minimum</option>
-                </select>
-            </div>
-            <div class="col-md-3">
-                <label for="findMonth" class="form-label">Month</label>
-                <select id="findMonth" class="form-select">
-                    <option value="">All Months</option>
-                    <option value="01">January</option><option value="02">February</option><option value="03">March</option>
-                    <option value="04">April</option><option value="05">May</option><option value="06">June</option>
-                    <option value="07">July</option><option value="08">August</option><option value="09">September</option>
-                    <option value="10">October</option><option value="11">November</option><option value="12">December</option>
-                </select>
-            </div>
-            <div class="col-md-2">
-                <label for="findYear" class="form-label">Year (Optional)</label>
-                <input id="findYear" type="number" class="form-control" placeholder="All Years">
-            </div>
+            <div class="col-md-3"><label for="findVar" class="form-label">Variable</label><select id="findVar" class="form-select"></select></div>
+            <div class="col-md-2"><label for="findType" class="form-label">Find</label><select id="findType" class="form-select"><option value="max">Maximum</option><option value="min">Minimum</option></select></div>
+            <div class="col-md-3"><label for="findMonth" class="form-label">Month</label><select id="findMonth" class="form-select"><option value="">All Months</option><option value="01">January</option><option value="02">February</option><option value="03">March</option><option value="04">April</option><option value="05">May</option><option value="06">June</option><option value="07">July</option><option value="08">August</option><option value="09">September</option><option value="10">October</option><option value="11">November</option><option value="12">December</option></select></div>
+            <div class="col-md-2"><label for="findYear" class="form-label">Year</label><input id="findYear" type="number" class="form-control" placeholder="All Years"></div>
+        </div>
+
+        <!-- NEW: Conditional Input for Count Occurrences Feature -->
+        <div class="row g-2 mt-1 d-none" id="countOccurrencesDiv">
+            <div class="col-md-3"><label for="countVar" class="form-label">Variable</label><select id="countVar" class="form-select"></select></div>
+            <div class="col-md-2"><label for="countOp" class="form-label">Is</label><select id="countOp" class="form-select"><option value="ge">&gt;=</option><option value="le">&lt;=</option></select></div>
+            <div class="col-md-2"><label for="countVal" class="form-label">Value</label><input id="countVal" type="number" class="form-control" value="30"></div>
+            <div class="col-md-3"><label for="countMonth" class="form-label">Month</label><select id="countMonth" class="form-select"><option value="">All Months</option><option value="01">January</option><option value="02">February</option><option value="03">March</option><option value="04">April</option><option value="05">May</option><option value="06">June</option><option value="07">July</option><option value="08">August</option><option value="09">September</option><option value="10">October</option><option value="11">November</option><option value="12">December</option></select></div>
+            <div class="col-md-2"><label for="countYear" class="form-label">Year</label><input id="countYear" type="number" class="form-control" placeholder="All Years"></div>
         </div>
 
         <button id="analyzeBtn" class="btn btn-primary mt-3">Analyze</button>
@@ -112,6 +99,7 @@
 <script>
 let climateData = [];
 let chart = null;
+let lastDateFoundIndex = -1; // State for the "Find Previous" feature
 
 // --- DOM Element Cache ---
 const elements = {
@@ -123,19 +111,27 @@ const elements = {
     status: document.getElementById('status'),
     resultArea: document.getElementById('resultArea'),
     resultChart: document.getElementById('resultChart'),
-    // Conditional input groups
-    thresholdDiv: document.getElementById('thresholdDiv'),
+    // --- Conditional input groups
     lastDateDiv: document.getElementById('lastDateDiv'),
-    findMaxMinDiv: document.getElementById('findMaxMinDiv'), // NEW
-    // Specific inputs
-    thresholdInput: document.getElementById('thresholdInput'),
+    findMaxMinDiv: document.getElementById('findMaxMinDiv'),
+    countOccurrencesDiv: document.getElementById('countOccurrencesDiv'), // NEW
+    // --- Specific inputs
+    // Last Date
     lastDateVar: document.getElementById('lastDateVar'),
     lastDateOp: document.getElementById('lastDateOp'),
     lastDateVal: document.getElementById('lastDateVal'),
-    findVar: document.getElementById('findVar'), // NEW
-    findType: document.getElementById('findType'), // NEW
-    findMonth: document.getElementById('findMonth'), // NEW
-    findYear: document.getElementById('findYear'), // NEW
+    findPrevBtn: document.getElementById('findPrevBtn'), // NEW
+    // Find Max/Min
+    findVar: document.getElementById('findVar'),
+    findType: document.getElementById('findType'),
+    findMonth: document.getElementById('findMonth'),
+    findYear: document.getElementById('findYear'),
+    // Count Occurrences (NEW)
+    countVar: document.getElementById('countVar'),
+    countOp: document.getElementById('countOp'),
+    countVal: document.getElementById('countVal'),
+    countMonth: document.getElementById('countMonth'),
+    countYear: document.getElementById('countYear'),
 };
 
 // --- INITIALIZATION ---
@@ -169,17 +165,17 @@ elements.locationSelect.addEventListener('change', () => { fetchData(elements.lo
 elements.analysisType.addEventListener('change', function() {
     const currentVal = this.value;
     // Hide all conditional divs first
-    elements.thresholdDiv.classList.add('d-none');
     elements.lastDateDiv.classList.add('d-none');
     elements.findMaxMinDiv.classList.add('d-none');
+    elements.countOccurrencesDiv.classList.add('d-none');
     
     // Show the relevant div
-    if (currentVal === 'count-above') elements.thresholdDiv.classList.remove('d-none');
     if (currentVal === 'last-date') elements.lastDateDiv.classList.remove('d-none');
     if (currentVal === 'find-max-min') elements.findMaxMinDiv.classList.remove('d-none');
+    if (currentVal === 'count-occurrences') elements.countOccurrencesDiv.classList.remove('d-none');
 
     // Show/hide the main year input container
-    const yearlessAnalyses = ['last-date', 'find-max-min'];
+    const yearlessAnalyses = ['last-date', 'find-max-min', 'count-occurrences'];
     elements.yearInputContainer.classList.toggle('d-none', yearlessAnalyses.includes(currentVal));
 });
 
@@ -187,11 +183,14 @@ elements.analyzeBtn.addEventListener('click', function() {
     if (climateData.length === 0) {
         showResult("Please choose a location first."); return;
     }
+    // Reset state for "Find Previous" button on any new analysis
+    elements.findPrevBtn.classList.add('d-none');
+    lastDateFoundIndex = -1;
+
     const year = elements.yearInput.value;
     const analysis = elements.analysisType.value;
 
-    // Year is not required for all analyses
-    const yearRequiredAnalyses = ['max', 'count-above', 'frost-dates'];
+    const yearRequiredAnalyses = ['max', 'frost-dates'];
     if (yearRequiredAnalyses.includes(analysis) && !year) { 
         showResult("Please enter a year for this analysis."); 
         clearChart(); 
@@ -200,25 +199,15 @@ elements.analyzeBtn.addEventListener('click', function() {
 
     // Route to the correct analysis function
     switch (analysis) {
-        case 'max':
-            analyzeMaxTemp(year);
-            break;
-        case 'count-above':
-            const threshold = parseFloat(elements.thresholdInput.value);
-            if (isNaN(threshold)) { showResult("Please enter a numeric threshold."); clearChart(); return; }
-            analyzeCountAbove(year, threshold);
-            break;
-        case 'frost-dates':
-            analyzeFrostDates(year);
-            break;
-        case 'last-date':
-            analyzeLastDateOfCondition();
-            break;
-        case 'find-max-min': // NEW
-            analyzeOverallMaxMin();
-            break;
+        case 'max': analyzeMaxTemp(year); break;
+        case 'count-occurrences': analyzeCountOccurrences(); break;
+        case 'frost-dates': analyzeFrostDates(year); break;
+        case 'last-date': analyzeLastDateOfCondition(); break;
+        case 'find-max-min': analyzeOverallMaxMin(); break;
     }
 });
+
+elements.findPrevBtn.addEventListener('click', findPreviousDate); // Listener for new button
 
 // --- DATA HANDLING ---
 function fetchData(filename) {
@@ -227,7 +216,7 @@ function fetchData(filename) {
         header: true, download: true, skipEmptyLines: true,
         complete: function(results) {
             climateData = results.data;
-            populateVariableSelector(results.meta.fields, results.data[0]); // NEW
+            populateVariableSelectors(results.meta.fields, results.data[0]);
             elements.status.textContent = "Loaded " + climateData.length + " rows";
             showDataRange(climateData);
             elements.resultArea.innerHTML = '';
@@ -242,19 +231,26 @@ function fetchData(filename) {
     });
 }
 
-// NEW: Dynamically populate the variable selector based on numeric columns
-function populateVariableSelector(headers, firstRow) {
-    elements.findVar.innerHTML = '';
-    const nonNumericHeaders = ['Date/Time', 'Year', 'Month', 'Day', 'Station ID']; // Headers to ignore
+function populateVariableSelectors(headers, firstRow) {
+    const numericHeaders = [];
+    const nonNumericHeaders = ['Date/Time', 'Year', 'Month', 'Day', 'Station ID'];
     if (!firstRow) return;
 
     headers.forEach(header => {
         if (!nonNumericHeaders.includes(header) && !isNaN(parseFloat(firstRow[header]))) {
+            numericHeaders.push(header);
+        }
+    });
+    
+    // Populate all relevant dropdowns
+    [elements.findVar, elements.countVar].forEach(selectElement => {
+        selectElement.innerHTML = '';
+        numericHeaders.forEach(header => {
             const option = document.createElement('option');
             option.value = header;
             option.textContent = header;
-            elements.findVar.appendChild(option);
-        }
+            selectElement.appendChild(option);
+        });
     });
 }
 
@@ -269,23 +265,16 @@ function showResult(text) {
 
 function showDataRange(dataArray) {
     const rangeDiv = document.getElementById('dataRange');
-    if (!dataArray || dataArray.length === 0) {
-        rangeDiv.textContent = 'Data Range: No data'; return;
-    }
+    if (!dataArray || dataArray.length === 0) { rangeDiv.textContent = 'Data Range: No data'; return; }
     const dates = dataArray.map(row => new Date(row["Date/Time"])).filter(d => !isNaN(d));
-    if (dates.length === 0) {
-        rangeDiv.textContent = 'Data Range: No valid dates'; return;
-    }
+    if (dates.length === 0) { rangeDiv.textContent = 'Data Range: No valid dates'; return; }
     const minDate = new Date(Math.min(...dates));
     const maxDate = new Date(Math.max(...dates));
     rangeDiv.textContent = `Data Range: ${minDate.toISOString().slice(0,10)} to ${maxDate.toISOString().slice(0,10)}`;
 }
 
 function clearChart() {
-    if (chart) {
-        chart.destroy();
-        chart = null;
-    }
+    if (chart) { chart.destroy(); chart = null; }
 }
 
 // --- ANALYSIS FUNCTIONS ---
@@ -303,16 +292,6 @@ function analyzeMaxTemp(year) {
     } else {
         showResult("No valid max temperature data for that year."); clearChart();
     }
-}
-
-function analyzeCountAbove(year, threshold) {
-    const filtered = getYearFilterData(year);
-    if (filtered.length === 0) { showResult("No data for that year."); clearChart(); return; }
-    const count = filtered.reduce((acc, row) => {
-        const v = parseFloat(row["Max Temp (°C)"]);
-        return (!isNaN(v) && v >= threshold) ? acc + 1 : acc;
-    }, 0);
-    showResult(`Days in ${year} with Max Temp ≥ <b>${threshold}°C</b>: <b>${count}</b>`);
 }
 
 function analyzeFrostDates(year) {
@@ -338,84 +317,112 @@ function analyzeFrostDates(year) {
 }
 
 function analyzeLastDateOfCondition() {
+    // This function starts the search from the end of the dataset
+    findPreviousDate(true);
+}
+
+function findPreviousDate(isFirstSearch = false) {
     const tempVar = elements.lastDateVar.value;
     const op = elements.lastDateOp.value;
     const targetVal = parseFloat(elements.lastDateVal.value);
+
     if (isNaN(targetVal)) { showResult("Please enter a numeric value for the condition."); return; }
-    if (!climateData[0] || climateData[0][tempVar] === undefined) { showResult(`Error: The dataset does not contain a '${tempVar}' column.`); return; }
+    if (!climateData[0] || climateData[0][tempVar] === undefined) { showResult(`Error: Dataset does not contain a '${tempVar}' column.`); return; }
+
     let lastMatch = null;
-    for (let i = climateData.length - 1; i >= 0; i--) {
+    const startIndex = isFirstSearch ? climateData.length - 1 : lastDateFoundIndex - 1;
+
+    for (let i = startIndex; i >= 0; i--) {
         const row = climateData[i];
         const temp = parseFloat(row[tempVar]);
         if (isNaN(temp)) continue;
         const conditionMet = (op === 'ge') ? (temp >= targetVal) : (temp <= targetVal);
-        if (conditionMet) { lastMatch = row; break; }
+        if (conditionMet) {
+            lastMatch = row;
+            lastDateFoundIndex = i; // Store the index of this match
+            break;
+        }
     }
+
     const opSymbol = op === 'ge' ? '&ge;' : '&le;';
     const tempVarName = tempVar.includes('Max') ? 'Max Temp' : 'Min Temp';
+
     if (lastMatch) {
         const resultTemp = parseFloat(lastMatch[tempVar]).toFixed(1);
-        showResult(`The last date with <b>${tempVarName} ${opSymbol} ${targetVal}°C</b> was:<br><b>${lastMatch["Date/Time"]}</b> (with a value of ${resultTemp}°C)`);
+        showResult(`Last date with <b>${tempVarName} ${opSymbol} ${targetVal}°C</b> was:<br><b>${lastMatch["Date/Time"]}</b> (with a value of ${resultTemp}°C)`);
+        elements.findPrevBtn.classList.remove('d-none'); // Show the button
     } else {
-        showResult(`No date found where <b>${tempVarName} ${opSymbol} ${targetVal}°C</b>.`);
+        const message = isFirstSearch ? `No date found where <b>${tempVarName} ${opSymbol} ${targetVal}°C</b>.` : "No more previous dates found for this condition.";
+        showResult(message);
+        elements.findPrevBtn.classList.add('d-none'); // Hide button if no more matches
     }
     clearChart();
 }
 
-// NEW: Find Overall Max/Min for a variable with optional filters
 function analyzeOverallMaxMin() {
     const variable = elements.findVar.value;
-    const findType = elements.findType.value; // 'max' or 'min'
+    const findType = elements.findType.value;
     const year = elements.findYear.value;
-    const month = elements.findMonth.value; // "01" for Jan, "" for all
-
-    if (!variable) {
-        showResult("No numeric variables available to analyze.");
-        return;
-    }
-
-    // 1. Filter data based on year and month
+    const month = elements.findMonth.value;
+    if (!variable) { showResult("No numeric variables available to analyze."); return; }
     let filteredData = climateData;
-    if (year) {
-        filteredData = filteredData.filter(row => row['Date/Time'] && row['Date/Time'].startsWith(year));
-    }
-    if (month) {
-        filteredData = filteredData.filter(row => row['Date/Time'] && row['Date/Time'].substring(5, 7) === month);
-    }
-
-    if (filteredData.length === 0) {
-        showResult("No data found for the selected period.");
-        return;
-    }
-
-    // 2. Find the max/min value in the filtered data
+    if (year) { filteredData = filteredData.filter(row => row['Date/Time'] && row['Date/Time'].startsWith(year)); }
+    if (month) { filteredData = filteredData.filter(row => row['Date/Time'] && row['Date/Time'].substring(5, 7) === month); }
+    if (filteredData.length === 0) { showResult("No data found for the selected period."); return; }
     let targetRow = null;
     let targetVal = (findType === 'max') ? -Infinity : Infinity;
-
     for (const row of filteredData) {
         const value = parseFloat(row[variable]);
         if (isNaN(value)) continue;
-
         if ((findType === 'max' && value > targetVal) || (findType === 'min' && value < targetVal)) {
             targetVal = value;
             targetRow = row;
         }
     }
-
-    // 3. Display the result
-    if (!targetRow) {
-        showResult(`No valid data for '${variable}' in the selected period.`);
-        return;
-    }
-
-    // Build a descriptive title for the result
+    if (!targetRow) { showResult(`No valid data for '${variable}' in the selected period.`); return; }
     const monthNames = ["", "January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
     let periodStr = "";
     if (month) periodStr += monthNames[parseInt(month)] + " ";
     if (year) periodStr += year;
     if (!periodStr) periodStr = "Overall";
-
     const resultText = `The <b>${findType}imum ${variable}</b> for <b>${periodStr}</b> was <b>${targetVal}</b> on <b>${targetRow['Date/Time']}</b>.`;
+    showResult(resultText);
+    clearChart();
+}
+
+// NEW/OVERHAULED: Count occurrences of a condition
+function analyzeCountOccurrences() {
+    const variable = elements.countVar.value;
+    const op = elements.countOp.value;
+    const value = parseFloat(elements.countVal.value);
+    const year = elements.countYear.value;
+    const month = elements.countMonth.value;
+
+    if (!variable) { showResult("No numeric variables available to analyze."); return; }
+    if (isNaN(value)) { showResult("Please enter a numeric value to count against."); return; }
+
+    let filteredData = climateData;
+    if (year) { filteredData = filteredData.filter(row => row['Date/Time'] && row['Date/Time'].startsWith(year)); }
+    if (month) { filteredData = filteredData.filter(row => row['Date/Time'] && row['Date/Time'].substring(5, 7) === month); }
+    if (filteredData.length === 0) { showResult("No data found for the selected period."); return; }
+
+    let count = 0;
+    for (const row of filteredData) {
+        const rowVal = parseFloat(row[variable]);
+        if (isNaN(rowVal)) continue;
+        if ((op === 'ge' && rowVal >= value) || (op === 'le' && rowVal <= value)) {
+            count++;
+        }
+    }
+
+    const monthNames = ["", "January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+    let periodStr = "";
+    if (month) periodStr += monthNames[parseInt(month)] + " ";
+    if (year) periodStr += year;
+    if (!periodStr) periodStr = "the entire dataset";
+
+    const opSymbol = op === 'ge' ? '&ge;' : '&le;';
+    const resultText = `Found <b>${count}</b> occurrences where <b>${variable}</b> was <b>${opSymbol} ${value}</b> in <b>${periodStr}</b>.`;
     showResult(resultText);
     clearChart();
 }
