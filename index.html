@@ -383,9 +383,11 @@ function analyzeOverallMaxMin() {
     const monthNames = ["", "January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
     let periodStr = "";
     if (month) periodStr += monthNames[parseInt(month)] + " ";
+        const resultText = `The <b>${findType}imum ${variable}</b> for <b>${periodStr}</b> was <b>${targetVal}</b> on <b>${targetRow['Date/Time']}</b>.`;
     if (year) periodStr += year;
-    if (!periodStr) periodStr = "Overall";
-    const resultText = `The <b>${findType}imum ${variable}</b> for <b>${periodStr}</b> was <b>${targetVal}</b> on <b>${targetRow['Date/Time']}</b>.`;
+        const resultText = `The <b>${findType}imum ${variable}</b> in <b>${periodStr}</b> was <b>${targetVal}</b> on <b>${targetRow['Date/Time']}</b>.`;
+    if (!periodStr) periodStr = "all-time";
+        const resultText = `The <b>${periodStr}</b> <b>${findType}imum ${variable}</b> was <b>${targetVal}</b> on <b>${targetRow['Date/Time']}</b>.`;
     showResult(resultText);
     clearChart();
 }
