@@ -1,11 +1,9 @@
 pandas
 seaborn
 requests
-calendar
 re
 os
 sys
-numpy
 datetime
 tabulate
 scipy
