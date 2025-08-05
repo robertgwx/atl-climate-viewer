@@ -1,240 +1,323 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>Dynamic Climate Data Dashboard</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
-  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
-  <style>
-    body { background: #f8f9fa; }
-    @media (prefers-color-scheme: dark) {
-      body { background: #181a1b; color: #fff; }
-      .card, .form-control, .form-select { background-color: #222; color: #fff; }
-    }
-  </style>
+    <meta charset="UTF-8">
+    <title>Dynamic Climate Data Dashboard</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <style>
+        body { background: #f8f9fa; }
+        @media (prefers-color-scheme: dark) {
+            body { background: #181a1b; color: #fff; }
+            .card, .form-control, .form-select, .alert-info { 
+                background-color: #343a40; 
+                color: #e9ecef;
+                border-color: #495057;
+            }
+        }
+    </style>
 </head>
 <body>
 <div class="container my-4">
-  <h1 class="mb-4">Climate Data Dashboard</h1>
-  <div class="card p-3 mb-3">
-    <div class="row g-2">
-      <div class="col-md-6">
-        <label for="locationSelect" class="form-label">Location</label>
-        <select id="locationSelect" class="form-select"></select>
-      </div>
-      <div class="col-md-3">
-        <label for="analysisType" class="form-label">Analysis Type</label>
-        <select id="analysisType" class="form-select">
-          <option value="max">Max Temperature (Year)</option>
-          <option value="count-above">Count Temp ≥ X (Year)</option>
-        </select>
-      </div>
-      <div class="col-md-1">
-        <label for="yearInput" class="form-label">Year</label>
-        <input id="yearInput" type="number" class="form-control" placeholder="e.g. 2023">
-      </div>
-      <div class="col-md-2 d-none" id="thresholdDiv">
-        <label for="thresholdInput" class="form-label">Threshold</label>
-        <input id="thresholdInput" type="number" class="form-control" placeholder="e.g. 30">
-      </div>
+    <h1 class="mb-4">Climate Data Dashboard</h1>
+    <div class="card p-3 mb-3">
+        <!-- Main Controls -->
+        <div class="row g-2">
+            <div class="col-md-4">
+                <label for="locationSelect" class="form-label">Location</label>
+                <select id="locationSelect" class="form-select"></select>
+            </div>
+            <div class="col-md-4">
+                <label for="analysisType" class="form-label">Analysis Type</label>
+                <select id="analysisType" class="form-select">
+                    <option value="max">Max Temperature (Year)</option>
+                    <option value="count-above">Count Temp ≥ X (Year)</option>
+                    <option value="frost-dates">First/Last Frost (Year)</option>
+                    <option value="last-date">Find Last Date of Condition</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label for="yearInput" class="form-label">Year</label>
+                <input id="yearInput" type="number" class="form-control" placeholder="e.g. 2023">
+            </div>
+            <div class="col-md-2 d-none" id="thresholdDiv">
+                <label for="thresholdInput" class="form-label">Threshold (°C)</label>
+                <input id="thresholdInput" type="number" class="form-control" value="30">
+            </div>
+        </div>
+
+        <!-- Conditional Input for Last Date Feature -->
+        <div class="row g-3 mt-1 d-none" id="lastDateDiv">
+            <div class="col-md-auto"><label class="form-label">Find last date where:</label></div>
+            <div class="col-md-3">
+                <select id="lastDateVar" class="form-select">
+                    <option value="Max Temp (°C)">Max Temp</option>
+                    <option value="Min Temp (°C)">Min Temp</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                 <select id="lastDateOp" class="form-select">
+                    <option value="ge">&gt;=</option>
+                    <option value="le">&lt;=</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <input id="lastDateVal" type="number" class="form-control" value="30">
+            </div>
+        </div>
+
+        <button id="analyzeBtn" class="btn btn-primary mt-3">Analyze</button>
+        <span id="status" class="ms-3"></span>
     </div>
-    <button id="analyzeBtn" class="btn btn-primary mt-3">Analyze</button>
-    <span id="status" class="ms-3"></span>
-  </div>
 
-  <!-- Added Data Range Display -->
-  <div id="dataRange" class="mb-3 fw-bold">Data Range: Not loaded</div>
-
-  <div id="resultArea" class="mb-3"></div>
-  <div>
-    <canvas id="resultChart"></canvas>
-  </div>
+    <div id="dataRange" class="mb-3 fw-bold">Data Range: Not loaded</div>
+    <div id="resultArea" class="mb-3"></div>
+    <div>
+        <canvas id="resultChart"></canvas>
+    </div>
 </div>
 
 <script>
 let climateData = [];
 let chart = null;
-const locationSelect = document.getElementById('locationSelect');
-const analysisType = document.getElementById('analysisType');
-const yearInput = document.getElementById('yearInput');
-const analyzeBtn = document.getElementById('analyzeBtn');
-const status = document.getElementById('status');
-const resultArea = document.getElementById('resultArea');
-const thresholdDiv = document.getElementById('thresholdDiv');
-const thresholdInput = document.getElementById('thresholdInput');
-const resultChart = document.getElementById('resultChart');
 
-// ---------------- //
-// Load manifest and build province-grouped selector
+// --- DOM Element Cache ---
+const elements = {
+    locationSelect: document.getElementById('locationSelect'),
+    analysisType: document.getElementById('analysisType'),
+    yearInput: document.getElementById('yearInput'),
+    analyzeBtn: document.getElementById('analyzeBtn'),
+    status: document.getElementById('status'),
+    resultArea: document.getElementById('resultArea'),
+    resultChart: document.getElementById('resultChart'),
+    // Conditional input groups
+    thresholdDiv: document.getElementById('thresholdDiv'),
+    lastDateDiv: document.getElementById('lastDateDiv'),
+    // Specific inputs
+    thresholdInput: document.getElementById('thresholdInput'),
+    lastDateVar: document.getElementById('lastDateVar'),
+    lastDateOp: document.getElementById('lastDateOp'),
+    lastDateVal: document.getElementById('lastDateVal'),
+};
+
+// --- INITIALIZATION ---
 fetch('locations.json')
-  .then(res => res.json())
-  .then(data => {
-    locationSelect.innerHTML = '';
-    for (const [province, locations] of Object.entries(data)) {
-      const group = document.createElement('optgroup');
-      group.label = province;
-      locations.forEach(loc => {
-        const opt = document.createElement('option');
-        opt.value = loc.file;
-        opt.textContent = loc.label;
-        group.appendChild(opt);
-      });
-      locationSelect.appendChild(group);
-    }
-    // Trigger load for the first valid location
-    if (locationSelect.options.length > 0) {
-      locationSelect.selectedIndex = 0;
-      fetchData(locationSelect.value);
-    }
-  })
-  .catch(() => {
-    locationSelect.innerHTML = '<option>locations.json missing!</option>';
-    status.textContent = 'locations.json missing!';
-  });
+    .then(res => res.json())
+    .then(data => {
+        elements.locationSelect.innerHTML = '';
+        for (const [province, locations] of Object.entries(data)) {
+            const group = document.createElement('optgroup');
+            group.label = province;
+            locations.forEach(loc => {
+                const opt = document.createElement('option');
+                opt.value = loc.file;
+                opt.textContent = loc.label;
+                group.appendChild(opt);
+            });
+            elements.locationSelect.appendChild(group);
+        }
+        if (elements.locationSelect.options.length > 0) {
+            elements.locationSelect.selectedIndex = 0;
+            fetchData(elements.locationSelect.value);
+        }
+    })
+    .catch(() => {
+        elements.status.textContent = 'Error: locations.json missing!';
+    });
 
-// Show/hide threshold
-analysisType.addEventListener('change', function() {
-  thresholdDiv.classList.toggle('d-none', analysisType.value !== 'count-above');
+// --- EVENT LISTENERS ---
+elements.locationSelect.addEventListener('change', () => { fetchData(elements.locationSelect.value); });
+
+elements.analysisType.addEventListener('change', function() {
+    // Show/hide conditional input fields based on analysis type
+    const currentVal = this.value;
+    elements.thresholdDiv.classList.toggle('d-none', currentVal !== 'count-above');
+    elements.lastDateDiv.classList.toggle('d-none', currentVal !== 'last-date');
+    // Also hide/show the year input, which isn't needed for the 'last-date' feature
+    elements.yearInput.parentElement.classList.toggle('d-none', currentVal === 'last-date');
 });
 
-locationSelect.addEventListener('change', ()=>{ fetchData(locationSelect.value); });
-
-function fetchData(filename, callback) {
-  status.textContent = "Loading...";
-  Papa.parse(filename, {
-    header: true,
-    download: true,
-    skipEmptyLines: true,
-    complete: function(results) {
-      climateData = results.data;
-      status.textContent = "Loaded " + climateData.length + " rows";
-      showDataRange(climateData); // <<-- Add this call
-      resultArea.innerHTML = '';
-      clearChart();
-    },
-    error: function(err) {
-      status.textContent = "Error loading file: " + err;
-      climateData = [];
-      clearChart();
-      showDataRange([]); // Reset on error
+elements.analyzeBtn.addEventListener('click', function() {
+    if (climateData.length === 0) {
+        showResult("Please choose a location first."); return;
     }
-  });
-}
+    const year = elements.yearInput.value;
+    const analysis = elements.analysisType.value;
 
-// ADD THIS FUNCTION
-function showDataRange(dataArray) {
-  const rangeDiv = document.getElementById('dataRange');
-  if (!dataArray || dataArray.length === 0) {
-    rangeDiv.textContent = 'Data Range: No data';
-    return;
-  }
-  // Extract valid date strings, handle invalids
-  const dates = dataArray
-    .map(row => new Date(row["Date/Time"]))
-    .filter(d => d instanceof Date && !isNaN(d));
-  if (dates.length === 0) {
-    rangeDiv.textContent = 'Data Range: No valid dates';
-    return;
-  }
-  // Find min and max
-  const minDate = new Date(Math.min(...dates));
-  const maxDate = new Date(Math.max(...dates));
-  // Format as YYYY-MM-DD
-  const minStr = minDate.toISOString().slice(0,10);
-  const maxStr = maxDate.toISOString().slice(0,10);
-  rangeDiv.textContent = `Data Range: ${minStr} to ${maxStr}`;
+    // Year is not required for all analyses
+    if (!year && !['last-date'].includes(analysis)) { 
+        showResult("Please enter a year."); 
+        clearChart(); 
+        return; 
+    }
+
+    // Route to the correct analysis function
+    switch (analysis) {
+        case 'max':
+            analyzeMaxTemp(year);
+            break;
+        case 'count-above':
+            const threshold = parseFloat(elements.thresholdInput.value);
+            if (isNaN(threshold)) { showResult("Please enter a numeric threshold."); clearChart(); return; }
+            analyzeCountAbove(year, threshold);
+            break;
+        case 'frost-dates':
+            analyzeFrostDates(year);
+            break;
+        case 'last-date':
+            analyzeLastDateOfCondition();
+            break;
+    }
+});
+
+// --- DATA HANDLING ---
+function fetchData(filename) {
+    elements.status.textContent = "Loading...";
+    Papa.parse(filename, {
+        header: true, download: true, skipEmptyLines: true,
+        complete: function(results) {
+            // No longer need to pre-calculate Mean Temp since the functions using it are removed
+            climateData = results.data;
+            elements.status.textContent = "Loaded " + climateData.length + " rows";
+            showDataRange(climateData);
+            elements.resultArea.innerHTML = '';
+            clearChart();
+        },
+        error: function(err) {
+            elements.status.textContent = "Error loading file: " + err;
+            climateData = [];
+            showDataRange([]);
+            clearChart();
+        }
+    });
 }
 
 function getYearFilterData(year) {
-  return climateData.filter(row => row["Date/Time"] && row["Date/Time"].toString().startsWith(year));
+    return climateData.filter(row => row["Date/Time"] && row["Date/Time"].toString().startsWith(year));
 }
+
+// --- UI & UTILITY FUNCTIONS ---
 function showResult(text) {
-  resultArea.innerHTML = '<div class="alert alert-info">' + text + '</div>';
+    elements.resultArea.innerHTML = `<div class="alert alert-info">${text}</div>`;
 }
 
-// Max Temperature in Year
-function analyzeMaxTemp(year) {
-  let filtered = getYearFilterData(year);
-  let maxRow = null, maxVal = null;
-  filtered.forEach(row => {
-    let v = parseFloat(row["Max Temp (°C)"]);
-    if (!isNaN(v) && (maxVal === null || v > maxVal)) {
-      maxVal = v; maxRow = row;
+function showDataRange(dataArray) {
+    const rangeDiv = document.getElementById('dataRange');
+    if (!dataArray || dataArray.length === 0) {
+        rangeDiv.textContent = 'Data Range: No data'; return;
     }
-  });
-  if (maxRow) {
-    showResult(`Max Temp: <b>${maxVal}°C</b><br>Date: <b>${maxRow["Date/Time"]}</b>`);
-    drawChart(filtered.map(r => r["Date/Time"]), filtered.map(r => parseFloat(r["Max Temp (°C)"])));
-  } else {
-    showResult("No data for that year.");
-    clearChart();
-  }
-}
-// Count of Days Temp ≥ X in Year
-function analyzeCountAbove(year, threshold) {
-  let filtered = getYearFilterData(year);
-  let count = 0;
-  filtered.forEach(row => {
-    let v = parseFloat(row["Max Temp (°C)"]);
-    if (!isNaN(v) && v >= threshold) count++;
-  });
-  showResult(`Days with Max Temp ≥ <b>${threshold}°C</b> in ${year}: <b>${count}</b>`);
-  drawChart(filtered.map(r => r["Date/Time"]), filtered.map(r => parseFloat(r["Max Temp (°C)"])));
-}
-function drawChart(labels, values) {
-  if (chart) chart.destroy();
-  chart = new Chart(resultChart, {
-    type: 'line',
-    data: {
-      labels: labels,
-      datasets: [{
-        label: 'Max Temp (°C)',
-        data: values,
-        borderColor: '#007bff',
-        backgroundColor: 'rgba(0,123,255,0.1)',
-        fill: true,
-        pointRadius: 1,
-        tension: 0.2
-      }]
-    },
-    options: {
-      responsive: true,
-      plugins: {
-        legend: { display: false }
-      },
-      scales: {
-        x: {
-          title: { display: true, text: 'Date' }, ticks: { maxTicksLimit: 20 }
-        },
-        y: {
-          title: { display: true, text: 'Max Temp (°C)' }
-        }
-      }
+    const dates = dataArray.map(row => new Date(row["Date/Time"])).filter(d => !isNaN(d));
+    if (dates.length === 0) {
+        rangeDiv.textContent = 'Data Range: No valid dates'; return;
     }
-  });
+    const minDate = new Date(Math.min(...dates));
+    const maxDate = new Date(Math.max(...dates));
+    rangeDiv.textContent = `Data Range: ${minDate.toISOString().slice(0,10)} to ${maxDate.toISOString().slice(0,10)}`;
 }
+
 function clearChart() {
-  if (chart) chart.destroy();
+    if (chart) {
+        chart.destroy();
+        chart = null;
+    }
 }
 
-// Handle analysis
-analyzeBtn.addEventListener('click', function() {
-  if (climateData.length === 0) {
-    showResult("Please choose a location."); return;
-  }
-  const year = yearInput.value;
-  if (!year) { showResult("Please enter a year."); clearChart(); return; }
-  if (analysisType.value === 'max') {
-    analyzeMaxTemp(year);
-  }
-  else if (analysisType.value === 'count-above') {
-    const threshold = parseFloat(thresholdInput.value);
-    if (isNaN(threshold)) { showResult("Please enter a threshold."); clearChart(); return; }
-    analyzeCountAbove(year, threshold);
-  }
-});
+// --- ANALYSIS FUNCTIONS ---
+
+function analyzeMaxTemp(year) {
+    const filtered = getYearFilterData(year);
+    if (filtered.length === 0) { showResult("No data for that year."); clearChart(); return; }
+    let maxRow = null, maxVal = -Infinity;
+    filtered.forEach(row => {
+        let v = parseFloat(row["Max Temp (°C)"]);
+        if (!isNaN(v) && v > maxVal) { maxVal = v; maxRow = row; }
+    });
+    if (maxRow) {
+        showResult(`Max Temp in ${year}: <b>${maxVal}°C</b><br>Date: <b>${maxRow["Date/Time"]}</b>`);
+    } else {
+        showResult("No valid max temperature data for that year."); clearChart();
+    }
+}
+
+function analyzeCountAbove(year, threshold) {
+    const filtered = getYearFilterData(year);
+    if (filtered.length === 0) { showResult("No data for that year."); clearChart(); return; }
+    const count = filtered.reduce((acc, row) => {
+        const v = parseFloat(row["Max Temp (°C)"]);
+        return (!isNaN(v) && v >= threshold) ? acc + 1 : acc;
+    }, 0);
+    showResult(`Days in ${year} with Max Temp ≥ <b>${threshold}°C</b>: <b>${count}</b>`);
+}
+
+function analyzeFrostDates(year) {
+    const filtered = getYearFilterData(year);
+     if (filtered.length === 0 || !filtered[0]['Min Temp (°C)']) {
+        showResult("No data or no 'Min Temp (°C)' column for that year."); clearChart(); return;
+    }
+    let lastFrost = null, firstFrost = null;
+    const midYearPoint = new Date(`${year}-07-01`);
+    filtered.forEach(row => {
+        const temp = parseFloat(row["Min Temp (°C)"]);
+        const date = new Date(row["Date/Time"]);
+        if (!isNaN(temp) && temp <= 0) {
+            if (date < midYearPoint) { lastFrost = row; } 
+            else if (!firstFrost) { firstFrost = row; }
+        }
+    });
+    let resultText = `Frost Dates for ${year}:<br>`;
+    resultText += lastFrost ? `- Last Spring Frost (≤ 0°C): <b>${lastFrost["Date/Time"]}</b> (Min Temp: ${lastFrost["Min Temp (°C)"]}°C)` : "- No frost recorded in the first half of the year.";
+    resultText += '<br>';
+    resultText += firstFrost ? `- First Autumn Frost (≤ 0°C): <b>${firstFrost["Date/Time"]}</b> (Min Temp: ${firstFrost["Min Temp (°C)"]}°C)` : "- No frost recorded in the second half of the year.";
+    showResult(resultText);
+}
+
+function analyzeLastDateOfCondition() {
+    const tempVar = elements.lastDateVar.value; // e.g., "Max Temp (°C)"
+    const op = elements.lastDateOp.value;       // "ge" for >= or "le" for <=
+    const targetVal = parseFloat(elements.lastDateVal.value);
+
+    if (isNaN(targetVal)) {
+        showResult("Please enter a numeric value for the condition.");
+        return;
+    }
+    
+    if (!climateData[0] || climateData[0][tempVar] === undefined) {
+        showResult(`Error: The dataset does not contain a '${tempVar}' column.`);
+        return;
+    }
+
+    let lastMatch = null;
+
+    // Iterate backwards through the data for efficiency.
+    for (let i = climateData.length - 1; i >= 0; i--) {
+        const row = climateData[i];
+        const temp = parseFloat(row[tempVar]);
+        if (isNaN(temp)) continue;
+        const conditionMet = (op === 'ge') ? (temp >= targetVal) : (temp <= targetVal);
+        if (conditionMet) {
+            lastMatch = row;
+            break;
+        }
+    }
+
+    const opSymbol = op === 'ge' ? '&ge;' : '&le;';
+    const tempVarName = tempVar.includes('Max') ? 'Max Temp' : 'Min Temp';
+
+    if (lastMatch) {
+        const resultTemp = parseFloat(lastMatch[tempVar]).toFixed(1);
+        showResult(`The last date with <b>${tempVarName} ${opSymbol} ${targetVal}°C</b> was:<br>
+                    <b>${lastMatch["Date/Time"]}</b> (with a value of ${resultTemp}°C)`);
+    } else {
+        showResult(`No date found where <b>${tempVarName} ${opSymbol} ${targetVal}°C</b>.`);
+    }
+    
+    clearChart();
+}
+
+// Charting function remains unchanged
+function drawChart(config) { /* ... */ }
 
 </script>
 </body>
