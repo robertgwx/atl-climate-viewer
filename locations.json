@@ -64,7 +64,7 @@
     },
     {
       "label": "Daniel's Harbour",
-      "file": "climate_data/NL/Daniels Harbour_daily_data.csv"
+      "file": "climate_data/NL/Daniel's Harbour_daily_data.csv"
     },
     {
       "label": "Deer Lake",
@@ -92,7 +92,7 @@
     },
     {
       "label": "Mary's Harbour",
-      "file": "climate_data/NL/Marys Harbour_daily_data.csv"
+      "file": "climate_data/NL/Mary's Harbour_daily_data.csv"
     },
     {
       "label": "Millertown",
@@ -116,7 +116,7 @@
     },
     {
       "label": "St. John's",
-      "file": "climate_data/NL/St. John_s_daily_data.csv"
+      "file": "climate_data/NL/St. John's_daily_data.csv"
     },
     {
       "label": "Stephenville",
@@ -141,7 +141,7 @@
   ],
   "NS": [
     {
-      "label": "Baccaro",
+      "label": "Baccaro Point",
       "file": "climate_data/NS/Baccaro_daily_data.csv"
     },
     {
