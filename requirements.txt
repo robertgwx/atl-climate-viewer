@@ -1,12 +1,5 @@
 pandas
 seaborn
 requests
-re
-os
-sys
-datetime
 tabulate
 scipy
-glob
-concurrent.futures
-heapq
