@@ -1,7 +1,6 @@
 pandas
 seaborn
 requests
-matplotlib.pyplot
 calendar
 re
 os
