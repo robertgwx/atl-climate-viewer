@@ -2,12 +2,9 @@ import pandas as pd
 import seaborn as sns
 from io import StringIO
 import requests
-import matplotlib.pyplot as plt
-import calendar
 import re
 import os
 import sys
-import numpy as np
 from datetime import datetime
 from tabulate import tabulate
 from scipy import stats
