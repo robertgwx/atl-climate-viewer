@@ -44,6 +44,9 @@
     <span id="status" class="ms-3"></span>
   </div>
 
+  <!-- Added Data Range Display -->
+  <div id="dataRange" class="mb-3 fw-bold">Data Range: Not loaded</div>
+
   <div id="resultArea" class="mb-3"></div>
   <div>
     <canvas id="resultChart"></canvas>
@@ -107,6 +110,7 @@ function fetchData(filename, callback) {
     complete: function(results) {
       climateData = results.data;
       status.textContent = "Loaded " + climateData.length + " rows";
+      showDataRange(climateData); // <<-- Add this call
       resultArea.innerHTML = '';
       clearChart();
     },
@@ -114,8 +118,33 @@ function fetchData(filename, callback) {
       status.textContent = "Error loading file: " + err;
       climateData = [];
       clearChart();
+      showDataRange([]); // Reset on error
     }
   });
+}
+
+// ADD THIS FUNCTION
+function showDataRange(dataArray) {
+  const rangeDiv = document.getElementById('dataRange');
+  if (!dataArray || dataArray.length === 0) {
+    rangeDiv.textContent = 'Data Range: No data';
+    return;
+  }
+  // Extract valid date strings, handle invalids
+  const dates = dataArray
+    .map(row => new Date(row["Date/Time"]))
+    .filter(d => d instanceof Date && !isNaN(d));
+  if (dates.length === 0) {
+    rangeDiv.textContent = 'Data Range: No valid dates';
+    return;
+  }
+  // Find min and max
+  const minDate = new Date(Math.min(...dates));
+  const maxDate = new Date(Math.max(...dates));
+  // Format as YYYY-MM-DD
+  const minStr = minDate.toISOString().slice(0,10);
+  const maxStr = maxDate.toISOString().slice(0,10);
+  rangeDiv.textContent = `Data Range: ${minStr} to ${maxStr}`;
 }
 
 function getYearFilterData(year) {
