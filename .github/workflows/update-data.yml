@@ -3,7 +3,7 @@ name: Daily Data Fetch and Update
 on:
   schedule:
     # Runs at 18:00 UTC every day
-    - cron: '0 18 * * *'
+    - cron: '0 19 * * *'
   workflow_dispatch: # Allows manual trigger from GitHub UI
 
 jobs:
