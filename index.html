@@ -17,6 +17,10 @@
                 border-color: #495057;
             }
         }
+        .occurrence-list { max-height:220px; overflow-y:auto; border: 1px solid #ced4da; border-radius: 5px; background:#fff;}
+        @media (prefers-color-scheme: dark) {
+            .occurrence-list { background: #181a1b; }
+        }
     </style>
 </head>
 <body>
@@ -33,10 +37,11 @@
                 <label for="analysisType" class="form-label">Analysis Type</label>
                 <select id="analysisType" class="form-select">
                     <option value="max">Max Temperature (Year)</option>
-                    <option value="count-occurrences">Count Occurrences</option> <!-- MODIFIED -->
+                    <option value="count-occurrences">Count Occurrences</option>
                     <option value="frost-dates">First/Last Frost (Year)</option>
                     <option value="last-date">Find Last Date of Condition</option>
                     <option value="find-max-min">Find Max/Min of Variable</option>
+                    <option value="precipitation-analysis">Precipitation Analysis</option>
                 </select>
             </div>
             <div class="col-md-2" id="yearInputContainer">
@@ -44,7 +49,13 @@
                 <input id="yearInput" type="number" class="form-control" placeholder="e.g. 2023">
             </div>
         </div>
-
+        <!-- Precip Variable Choice (hidden unless Precip Analysis is chosen) -->
+        <div class="row g-2 mt-1 d-none" id="precipVariableDiv">
+            <div class="col-md-4">
+                <label for="precipVarSelect" class="form-label">Precipitation variable</label>
+                <select id="precipVarSelect" class="form-select"></select>
+            </div>
+        </div>
         <!-- Conditional Input for Last Date Feature -->
         <div class="row g-3 mt-1 d-none" id="lastDateDiv">
             <div class="col-md-auto"><label class="form-label">Find last date where:</label></div>
@@ -76,7 +87,7 @@
             <div class="col-md-2"><label for="findYear" class="form-label">Year</label><input id="findYear" type="number" class="form-control" placeholder="All Years"></div>
         </div>
 
-        <!-- NEW: Conditional Input for Count Occurrences Feature -->
+        <!-- Conditional Input for Count Occurrences Feature -->
         <div class="row g-2 mt-1 d-none" id="countOccurrencesDiv">
             <div class="col-md-3"><label for="countVar" class="form-label">Variable</label><select id="countVar" class="form-select"></select></div>
             <div class="col-md-2"><label for="countOp" class="form-label">Is</label><select id="countOp" class="form-select"><option value="ge">&gt;=</option><option value="le">&lt;=</option></select></div>
@@ -91,6 +102,7 @@
 
     <div id="dataRange" class="mb-3 fw-bold">Data Range: Not loaded</div>
     <div id="resultArea" class="mb-3"></div>
+    <div id="historyArea" class="mb-3"></div>
     <div>
         <canvas id="resultChart"></canvas>
     </div>
@@ -100,6 +112,7 @@
 let climateData = [];
 let chart = null;
 let lastDateFoundIndex = -1; // State for the "Find Previous" feature
+let lastResultHtml = ''; // store the last shown result so we can move to history after first click
 
 // --- DOM Element Cache ---
 const elements = {
@@ -114,24 +127,27 @@ const elements = {
     // --- Conditional input groups
     lastDateDiv: document.getElementById('lastDateDiv'),
     findMaxMinDiv: document.getElementById('findMaxMinDiv'),
-    countOccurrencesDiv: document.getElementById('countOccurrencesDiv'), // NEW
+    countOccurrencesDiv: document.getElementById('countOccurrencesDiv'),
     // --- Specific inputs
     // Last Date
     lastDateVar: document.getElementById('lastDateVar'),
     lastDateOp: document.getElementById('lastDateOp'),
     lastDateVal: document.getElementById('lastDateVal'),
-    findPrevBtn: document.getElementById('findPrevBtn'), // NEW
+    findPrevBtn: document.getElementById('findPrevBtn'),
     // Find Max/Min
     findVar: document.getElementById('findVar'),
     findType: document.getElementById('findType'),
     findMonth: document.getElementById('findMonth'),
     findYear: document.getElementById('findYear'),
-    // Count Occurrences (NEW)
+    // Count Occurrences
     countVar: document.getElementById('countVar'),
     countOp: document.getElementById('countOp'),
     countVal: document.getElementById('countVal'),
     countMonth: document.getElementById('countMonth'),
     countYear: document.getElementById('countYear'),
+    // Precipitation analysis variable selection
+    precipVariableDiv: document.getElementById('precipVariableDiv'),
+    precipVarSelect: document.getElementById('precipVarSelect')
 };
 
 // --- INITIALIZATION ---
@@ -162,28 +178,32 @@ fetch('locations.json')
 // --- EVENT LISTENERS ---
 elements.locationSelect.addEventListener('change', () => { fetchData(elements.locationSelect.value); });
 
+// --- Handle show/hide of input sections, and show precipitation variable select if "Precipitation Analysis" ---
 elements.analysisType.addEventListener('change', function() {
     const currentVal = this.value;
-    // Hide all conditional divs first
     elements.lastDateDiv.classList.add('d-none');
     elements.findMaxMinDiv.classList.add('d-none');
     elements.countOccurrencesDiv.classList.add('d-none');
-    
-    // Show the relevant div
+    elements.precipVariableDiv.classList.add('d-none');
+
     if (currentVal === 'last-date') elements.lastDateDiv.classList.remove('d-none');
     if (currentVal === 'find-max-min') elements.findMaxMinDiv.classList.remove('d-none');
     if (currentVal === 'count-occurrences') elements.countOccurrencesDiv.classList.remove('d-none');
+    if (currentVal === 'precipitation-analysis') {
+        elements.precipVariableDiv.classList.remove('d-none');
+        populatePrecipVarSelect();
+    }
 
-    // Show/hide the main year input container
     const yearlessAnalyses = ['last-date', 'find-max-min', 'count-occurrences'];
     elements.yearInputContainer.classList.toggle('d-none', yearlessAnalyses.includes(currentVal));
 });
 
 elements.analyzeBtn.addEventListener('click', function() {
+    document.getElementById('historyArea').innerHTML = ''; // <--- clears old history
+    lastResultHtml = ''; // reset last result for history
     if (climateData.length === 0) {
         showResult("Please choose a location first."); return;
     }
-    // Reset state for "Find Previous" button on any new analysis
     elements.findPrevBtn.classList.add('d-none');
     lastDateFoundIndex = -1;
 
@@ -197,17 +217,17 @@ elements.analyzeBtn.addEventListener('click', function() {
         return; 
     }
 
-    // Route to the correct analysis function
     switch (analysis) {
         case 'max': analyzeMaxTemp(year); break;
         case 'count-occurrences': analyzeCountOccurrences(); break;
         case 'frost-dates': analyzeFrostDates(year); break;
         case 'last-date': analyzeLastDateOfCondition(); break;
         case 'find-max-min': analyzeOverallMaxMin(); break;
+        case 'precipitation-analysis': analyzePrecipitation(); break;
     }
 });
 
-elements.findPrevBtn.addEventListener('click', findPreviousDate); // Listener for new button
+elements.findPrevBtn.addEventListener('click', findPreviousDate);
 
 // --- DATA HANDLING ---
 function fetchData(filename) {
@@ -217,6 +237,7 @@ function fetchData(filename) {
         complete: function(results) {
             climateData = results.data;
             populateVariableSelectors(results.meta.fields, results.data[0]);
+            populatePrecipVarSelect();
             elements.status.textContent = "Loaded " + climateData.length + " rows";
             showDataRange(climateData);
             elements.resultArea.innerHTML = '';
@@ -242,7 +263,6 @@ function populateVariableSelectors(headers, firstRow) {
         }
     });
     
-    // Populate all relevant dropdowns
     [elements.findVar, elements.countVar].forEach(selectElement => {
         selectElement.innerHTML = '';
         numericHeaders.forEach(header => {
@@ -252,6 +272,28 @@ function populateVariableSelectors(headers, firstRow) {
             selectElement.appendChild(option);
         });
     });
+}
+
+function populatePrecipVarSelect() {
+    const candidates = ["Total Rain (mm)", "Total Snow (cm)", "Total Precip (mm)"];
+    elements.precipVarSelect.innerHTML = '';
+    if (!climateData[0]) return;
+    let found = false;
+    for (const cname of candidates) {
+        if (Object.keys(climateData[0]).includes(cname)) {
+            const opt = document.createElement('option');
+            opt.value = cname;
+            opt.textContent = cname;
+            elements.precipVarSelect.appendChild(opt);
+            found = true;
+        }
+    }
+    if (!found) {
+        const opt = document.createElement('option');
+        opt.value = "";
+        opt.textContent = "No precipitation variable in data";
+        elements.precipVarSelect.appendChild(opt);
+    }
 }
 
 function getYearFilterData(year) {
@@ -317,45 +359,94 @@ function analyzeFrostDates(year) {
 }
 
 function analyzeLastDateOfCondition() {
-    // This function starts the search from the end of the dataset
-    findPreviousDate(true);
-}
-
-function findPreviousDate(isFirstSearch = false) {
+    lastDateFoundIndex = climateData.length; // Start from end
+    lastResultHtml = ''; // reset result storage
+    // Find first matching date
     const tempVar = elements.lastDateVar.value;
     const op = elements.lastDateOp.value;
     const targetVal = parseFloat(elements.lastDateVal.value);
 
-    if (isNaN(targetVal)) { showResult("Please enter a numeric value for the condition."); return; }
-    if (!climateData[0] || climateData[0][tempVar] === undefined) { showResult(`Error: Dataset does not contain a '${tempVar}' column.`); return; }
+    if (isNaN(targetVal)) { showResult("Please enter a numeric value for the condition."); clearChart(); return; }
+    if (!climateData[0] || climateData[0][tempVar] === undefined) { showResult(`Error: Dataset does not contain a '${tempVar}' column.`); clearChart(); return; }
 
-    let lastMatch = null;
-    const startIndex = isFirstSearch ? climateData.length - 1 : lastDateFoundIndex - 1;
-
-    for (let i = startIndex; i >= 0; i--) {
+    let i = lastDateFoundIndex - 1;
+    while (i >= 0) {
         const row = climateData[i];
         const temp = parseFloat(row[tempVar]);
-        if (isNaN(temp)) continue;
-        const conditionMet = (op === 'ge') ? (temp >= targetVal) : (temp <= targetVal);
-        if (conditionMet) {
-            lastMatch = row;
-            lastDateFoundIndex = i; // Store the index of this match
-            break;
+        if (!isNaN(temp)) {
+            const matched = (op === 'ge') ? (temp >= targetVal) : (temp <= targetVal);
+            if (matched) {
+                lastDateFoundIndex = i;
+                const opSymbol = op === 'ge' ? '&ge;' : '&le;';
+                const resultHtml = `Last date with <b>${tempVar} ${opSymbol} ${targetVal}°C</b> was:<br><b>${row["Date/Time"]}</b> (with a value of ${temp.toFixed(1)}°C)`;
+                showResult(resultHtml);
+                lastResultHtml = resultHtml;
+                elements.findPrevBtn.classList.remove('d-none');
+                clearChart();
+                return;
+            }
         }
+        i--;
     }
+    showResult(`No date found where <b>${tempVar} ${op === 'ge' ? '&ge;' : '&le;'} ${targetVal}°C</b>.`);
+    elements.findPrevBtn.classList.add('d-none');
+    clearChart();
+}
 
-    const opSymbol = op === 'ge' ? '&ge;' : '&le;';
-    const tempVarName = tempVar.includes('Max') ? 'Max Temp' : 'Min Temp';
+function findPreviousDate() {
+    const tempVar = elements.lastDateVar.value;
+    const op = elements.lastDateOp.value;
+    const targetVal = parseFloat(elements.lastDateVal.value);
 
-    if (lastMatch) {
-        const resultTemp = parseFloat(lastMatch[tempVar]).toFixed(1);
-        showResult(`Last date with <b>${tempVarName} ${opSymbol} ${targetVal}°C</b> was:<br><b>${lastMatch["Date/Time"]}</b> (with a value of ${resultTemp}°C)`);
-        elements.findPrevBtn.classList.remove('d-none'); // Show the button
+    if (isNaN(targetVal)) { showResult("Please enter a numeric value for the condition."); clearChart(); return; }
+    if (!climateData[0] || climateData[0][tempVar] === undefined) { showResult(`Error: Dataset does not contain a '${tempVar}' column.`); clearChart(); return; }
+
+    let i = lastDateFoundIndex - 1;
+    while (i >= 0) {
+        const row = climateData[i];
+        const temp = parseFloat(row[tempVar]);
+        if (!isNaN(temp)) {
+            const matched = (op === 'ge') ? (temp >= targetVal) : (temp <= targetVal);
+            if (matched) {
+                lastDateFoundIndex = i;
+                const opSymbol = op === 'ge' ? '&ge;' : '&le;';
+                const resultHtml = `Last date with <b>${tempVar} ${opSymbol} ${targetVal}°C</b> was:<br><b>${row["Date/Time"]}</b> (with a value of ${temp.toFixed(1)}°C)`;
+
+                // --- On first click, move previous result to history before showing new result ---
+                if (lastResultHtml) {
+                    const histDiv = document.getElementById('historyArea');
+                    const newHistory = document.createElement('div');
+                    newHistory.className = "alert alert-secondary py-2 mb-2";
+                    newHistory.innerHTML = lastResultHtml;
+                    histDiv.insertBefore(newHistory, histDiv.firstChild);
+                }
+
+                // Show new result and update lastResultHtml
+                showResult(resultHtml);
+                lastResultHtml = resultHtml;
+                elements.findPrevBtn.classList.remove('d-none');
+                clearChart();
+                return;
+            }
+        }
+        i--;
+    }
+    // If we get here, there were no matches (first search) or no more matches (subsequent)
+    if (lastDateFoundIndex === climateData.length) {
+        showResult(`No date found where <b>${tempVar} ${op === 'ge' ? '&ge;' : '&le;'} ${targetVal}°C</b>.`);
+    } else if (lastResultHtml) {
+        // Move last result to history one final time, then clear live area
+        const histDiv = document.getElementById('historyArea');
+        const newHistory = document.createElement('div');
+        newHistory.className = "alert alert-secondary py-2 mb-2";
+        newHistory.innerHTML = lastResultHtml;
+        histDiv.appendChild(newHistory);
+        lastResultHtml = '';
+        showResult("No more previous dates found for this condition.");
     } else {
-        const message = isFirstSearch ? `No date found where <b>${tempVarName} ${opSymbol} ${targetVal}°C</b>.` : "No more previous dates found for this condition.";
-        showResult(message);
-        elements.findPrevBtn.classList.add('d-none'); // Hide button if no more matches
+        showResult("No more previous dates found for this condition.");
     }
+    elements.findPrevBtn.classList.add('d-none');
     clearChart();
 }
 
@@ -390,7 +481,7 @@ function analyzeOverallMaxMin() {
     clearChart();
 }
 
-// NEW/OVERHAULED: Count occurrences of a condition
+// Enhanced Count occurrences: list matching dates/values
 function analyzeCountOccurrences() {
     const variable = elements.countVar.value;
     const op = elements.countOp.value;
@@ -406,30 +497,98 @@ function analyzeCountOccurrences() {
     if (month) { filteredData = filteredData.filter(row => row['Date/Time'] && row['Date/Time'].substring(5, 7) === month); }
     if (filteredData.length === 0) { showResult("No data found for the selected period."); return; }
 
-    let count = 0;
+    // List matches
+    let matches = [];
     for (const row of filteredData) {
         const rowVal = parseFloat(row[variable]);
         if (isNaN(rowVal)) continue;
         if ((op === 'ge' && rowVal >= value) || (op === 'le' && rowVal <= value)) {
-            count++;
+            matches.push({date: row["Date/Time"], val: rowVal});
         }
     }
-
     const monthNames = ["", "January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
     let periodStr = "";
     if (month) periodStr += monthNames[parseInt(month)] + " ";
     if (year) periodStr += year;
     if (!periodStr) periodStr = "the entire dataset";
-
     const opSymbol = op === 'ge' ? '&ge;' : '&le;';
-    const resultText = `Found <b>${count}</b> occurrences where <b>${variable}</b> was <b>${opSymbol} ${value}</b> in <b>${periodStr}</b>.`;
+    let resultText = `Found <b>${matches.length}</b> occurrences where <b>${variable}</b> was <b>${opSymbol} ${value}</b> in <b>${periodStr}</b>.`;
+
+    if (matches.length > 0) {
+        resultText += `<br><div class="occurrence-list"><ul>`;
+        for (const occ of matches) {
+            resultText += `<li>${occ.date}: ${occ.val}</li>`;
+        }
+        resultText += `</ul></div>`;
+    } else {
+        resultText += "<br>No occurrences found.";
+    }
     showResult(resultText);
     clearChart();
 }
 
-// Charting function remains unchanged
-function drawChart(config) { /* ... */ }
+// Precipitation Analysis, for any chosen variable:
+function analyzePrecipitation() {
+    const precipVar = elements.precipVarSelect.value;
+    if (!precipVar || !climateData[0] || !(precipVar in climateData[0])) {
+        showResult(`No precipitation variable selected or present in dataset.`);
+        clearChart();
+        return;
+    }
+    const year = elements.yearInput.value.trim();
+    const monthlyTotals = Array(12).fill(0);
+    const monthlyCounts = Array(12).fill(0);
+    const seasonMap = {0:'Winter',1:'Winter',11:'Winter',2:'Spring',3:'Spring',4:'Spring',5:'Summer',6:'Summer',7:'Summer',8:'Autumn',9:'Autumn',10:'Autumn'};
+    const seasonTotals = {Winter:0, Spring:0, Summer:0, Autumn:0};
+    climateData.forEach(row => {
+        const dateStr = row["Date/Time"];
+        if (!dateStr) return;
+        if (year && !dateStr.startsWith(year)) return;
+        const valStr = row[precipVar];
+        if (!valStr) return;
+        const val = parseFloat(valStr);
+        if (isNaN(val)) return;
+        const m = parseInt(dateStr.slice(5,7), 10)-1;
+        if(m<0 || m>11) return;
+        monthlyTotals[m] += val;
+        monthlyCounts[m]++;
+        const s = seasonMap[m];
+        if(s) seasonTotals[s] += val;
+    });
+    let html = `<h5>${precipVar} Analysis${year ? (' for '+year) : ''}</h5>`;
+    html += '<b>Monthly Totals:</b><ul style="columns: 3; -webkit-columns: 3;">';
+    monthlyTotals.forEach((sum,i) => {
+        html += `<li>${["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"][i]}: ${sum.toFixed(2)}</li>`;
+    });
+    html += '</ul>';
+    html += '<b>Seasonal Totals:</b><ul>';
+    for(const s of ["Winter","Spring","Summer","Autumn"]){
+        html += `<li>${s}: ${seasonTotals[s].toFixed(2)}</li>`;
+    }
+    html += '</ul>';
+    showResult(html);
 
+    clearChart();
+    chart = new Chart(elements.resultChart, {
+        type: 'bar',
+        data: {
+            labels: ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"],
+            datasets: [{
+                label: `${precipVar}${year?' '+year:''}`,
+                data: monthlyTotals,
+                backgroundColor: 'rgba(54,162,235,.7)'
+            }]
+        },
+        options: {
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    title: {display:true, text: precipVar}
+                }
+            }
+        }
+    });
+}
 </script>
 </body>
 </html>
