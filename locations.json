@@ -119,6 +119,10 @@
       "file": "climate_data/NL/St. John's_daily_data.csv"
     },
     {
+      "label": "St. Lawrence",
+      "file": "climate_data/NL/St. Lawrence_daily_data.csv"
+    },
+    {
       "label": "Stephenville",
       "file": "climate_data/NL/Stephenville_daily_data.csv"
     },
