@@ -33,12 +33,7 @@ jobs:
           git config --global user.name 'github-actions[bot]'
           git config --global user.email 'github-actions[bot]@users.noreply.github.com'
 
-      - name: Commit changes if any
-        run: |
-          git add .
-          git diff --cached --quiet || git commit -m "Automatic daily data update"
-
-      - name: Push changes
+      - name: Commit and push changes if any
         env:
           TOKEN: ${{ secrets.PAT_TOKEN }}
         run: |
@@ -46,5 +41,9 @@ jobs:
           git config --global user.name "github-actions[bot]"
           git remote set-url origin https://x-access-token:${TOKEN}@github.com/robertgwx/upgraded-spoon.git
           git add .
-          git commit -m "Automated update"
-          git push origin HEAD:main
+          if ! git diff --cached --quiet; then
+            git commit -m "Automated climate data update"
+            git push origin HEAD:main
+          else
+            echo "No changes to commit or push."
+          fi
