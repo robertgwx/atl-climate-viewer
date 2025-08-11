@@ -3,7 +3,7 @@ name: Daily Data Fetch and Update
 on:
   schedule:
     # Runs at 18:00 UTC every day
-    - cron: '0 19 * * *'
+    - cron: '0 18 * * *'
   workflow_dispatch: # Allows manual trigger from GitHub UI
 
 jobs:
@@ -21,22 +21,67 @@ jobs:
 
       - name: Install dependencies
         run: |
+          echo "==== Upgrading pip and installing dependencies ===="
           python -m pip install --upgrade pip
           pip install -r requirements.txt
+          echo "==== Dependencies installed ===="
 
       - name: Run data fetch and update script
         run: |
+          echo "==== Running data fetch and update script ===="
           python scripts/fetch_and_update_data.py
+          echo "==== Data fetch and update script completed ===="
 
       - name: Configure Git
         run: |
+          echo "==== Configuring git user ===="
           git config --global user.name 'github-actions[bot]'
           git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+          echo "==== Git user configured ===="
+
+      - name: Show git status
+        run: |
+          echo "==== Checking git status BEFORE staging ===="
+          git status
+          echo "==== End git status BEFORE staging ===="
+
+      - name: Stage changed files
+        run: |
+          echo "==== Staging changed files ===="
+          git add climate_data/
+          git status
+          echo "==== End staging changed files ===="
+
+      - name: Check for staged changes
+        run: |
+          echo "==== Checking for staged changes ===="
+          if git diff --cached --quiet; then
+            echo "No changes to commit."
+          else
+            echo "There are staged changes to commit."
+          fi
+          echo "==== End check for staged changes ===="
+
+      - name: Commit changes
+        run: |
+          echo "==== Attempting git commit ===="
+          git commit -m "Update climate data" || echo "No changes to commit."
+          echo "==== End git commit ===="
+
+      - name: Show git status after commit
+        run: |
+          echo "==== Checking git status AFTER commit ===="
+          git status
+          echo "==== End git status AFTER commit ===="
+
       - name: Push changes
         env:
           TOKEN: ${{ secrets.PAT_TOKEN }}
         run: |
+          echo "==== Configuring git remote ===="
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           git config --global user.name "github-actions[bot]"
           git remote set-url origin https://x-access-token:${TOKEN}@github.com/robertgwx/upgraded-spoon.git
-          git push origin HEAD:main
+          echo "==== Attempting git push ===="
+          git push origin HEAD:main || echo "Push failed or nothing to push."
+          echo "==== End git push ===="
