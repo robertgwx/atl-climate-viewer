@@ -85,6 +85,8 @@
             <div class="col-md-2"><label for="findType" class="form-label">Find</label><select id="findType" class="form-select"><option value="max">Maximum</option><option value="min">Minimum</option></select></div>
             <div class="col-md-3"><label for="findMonth" class="form-label">Month</label><select id="findMonth" class="form-select"><option value="">All Months</option><option value="01">January</option><option value="02">February</option><option value="03">March</option><option value="04">April</option><option value="05">May</option><option value="06">June</option><option value="07">July</option><option value="08">August</option><option value="09">September</option><option value="10">October</option><option value="11">November</option><option value="12">December</option></select></div>
             <div class="col-md-2"><label for="findYear" class="form-label">Year</label><input id="findYear" type="number" class="form-control" placeholder="All Years"></div>
+            <div class="col-md-2"><label for="findTopN" class="form-label">Top N (optional)</label><input id="findTopN" type="number" class="form-control" placeholder="e.g. 5"></div>
+            <div class="col-md-2"><button id="findNextBtn" class="btn btn-secondary w-100">Find Next</button></div>
         </div>
 
         <!-- Conditional Input for Count Occurrences Feature -->
@@ -241,17 +243,33 @@ elements.analyzeBtn.addEventListener('click', function() {
 
 elements.findPrevBtn.addEventListener('click', findPreviousDate);
 elements.findNextBtn.addEventListener('click', function() {
-    if (maxMinResults.length > 1 && maxMinCurrentIndex < maxMinResults.length - 1) {
+    if (maxMinResults.length > 0 && maxMinCurrentIndex < maxMinResults.length - 1) {
+        // Move previous result to history
+        const vPrev = maxMinResults[maxMinCurrentIndex];
+        const histDiv = document.getElementById('historyArea');
+        const newHistory = document.createElement('div');
+        newHistory.className = "alert alert-secondary py-2 mb-2";
+        let topN = parseInt(elements.findTopN.value);
+        if (!isNaN(topN) && topN > 1) {
+            newHistory.innerHTML = `<b>${elements.findType.value === 'max' ? 'Maximum' : 'Minimum'} ${elements.findVar.value}:</b> ${vPrev.val}<br><div class='occurrence-list'><ul><li>${vPrev.row['Date/Time']}: ${vPrev.row[elements.findVar.value]}</li></ul></div>`;
+        } else {
+            newHistory.innerHTML = `<b>${elements.findType.value === 'max' ? 'Maximum' : 'Minimum'} ${elements.findVar.value}:</b><br><b>${vPrev.row['Date/Time']}</b> (with a value of ${vPrev.val})`;
+        }
+        histDiv.insertBefore(newHistory, histDiv.firstChild);
+
+        // Show next result
         maxMinCurrentIndex++;
         const v = maxMinResults[maxMinCurrentIndex];
-        let resultText = `<b>Next ${elements.findType.value === 'max' ? 'Maximum' : 'Minimum'} ${elements.findVar.value}:</b> ${v.val}<br>`;
-        resultText += `<div class="occurrence-list"><ul>`;
-        resultText += `<li>${v.row['Date/Time']}: ${v.row[elements.findVar.value]}</li>`;
-        resultText += `</ul></div>`;
+        let resultText = '';
+        if (!isNaN(topN) && topN > 1) {
+            resultText = `<b>Next ${elements.findType.value === 'max' ? 'Maximum' : 'Minimum'} ${elements.findVar.value}:</b> ${v.val}<br><div class='occurrence-list'><ul><li>${v.row['Date/Time']}: ${v.row[elements.findVar.value]}</li></ul></div>`;
+        } else {
+            resultText = `<b>${elements.findType.value === 'max' ? 'Maximum' : 'Minimum'} ${elements.findVar.value}:</b><br><b>${v.row['Date/Time']}</b> (with a value of ${v.val})`;
+        }
         showResult(resultText);
     }
     if (maxMinCurrentIndex >= maxMinResults.length - 1) {
-        elements.findNextBtn.classList.add('d-none');
+        elements.findNextBtn.disabled = true;
     }
 });
 
@@ -288,6 +306,11 @@ function populateVariableSelectors(headers, firstRow) {
             numericHeaders.push(header);
         }
     });
+    
+    // Always add 'Spd of Max Gust (km/h)' if present in headers
+    if (headers.includes('Spd of Max Gust (km/h)') && !numericHeaders.includes('Spd of Max Gust (km/h)')) {
+        numericHeaders.push('Spd of Max Gust (km/h)');
+    }
     
     [elements.findVar, elements.countVar].forEach(selectElement => {
         selectElement.innerHTML = '';
@@ -481,7 +504,7 @@ function analyzeOverallMaxMin() {
     const type = elements.findType.value;
     const month = elements.findMonth.value;
     const year = elements.findYear.value;
-    const topN = parseInt(elements.findTopN.value);
+    let topN = parseInt(elements.findTopN.value);
     if (!variable) { showResult("No variable selected."); return; }
     let filteredData = climateData;
     if (year) filteredData = filteredData.filter(row => row['Date/Time'] && row['Date/Time'].startsWith(year));
@@ -489,24 +512,34 @@ function analyzeOverallMaxMin() {
     let values = filteredData.map(row => ({val: parseFloat(row[variable]), row})).filter(v => !isNaN(v.val));
     if (values.length === 0) { showResult("No data found for the selected period."); return; }
 
-    // Sort and get top N
+    // Sort all results
     let sorted;
     if (type === 'max') {
         sorted = values.sort((a, b) => b.val - a.val);
     } else {
         sorted = values.sort((a, b) => a.val - b.val);
     }
-    let topResults = topN && topN > 0 ? sorted.slice(0, topN) : [sorted[0]];
+    // If Top N is set and valid, use it, otherwise use all results
+    let topResults = (!isNaN(topN) && topN > 0) ? sorted.slice(0, topN) : sorted;
     maxMinResults = topResults;
     maxMinCurrentIndex = 0;
-    elements.findNextBtn.classList.toggle('d-none', topResults.length <= 1);
+    elements.findNextBtn.classList.remove('d-none');
+    elements.findNextBtn.disabled = false;
 
-    let resultText = `<b>${type === 'max' ? 'Maximum' : 'Minimum'} ${variable}${topN && topN > 1 ? ` (Top ${topN})` : ''}:</b><br>`;
-    resultText += `<div class="occurrence-list"><ul>`;
-    for (const v of topResults) {
-        resultText += `<li>${v.row['Date/Time']}: ${v.row[variable]}</li>`;
+    let resultText = '';
+    if (!isNaN(topN) && topN > 1) {
+        resultText = `<b>${type === 'max' ? 'Maximum' : 'Minimum'} ${variable} (Top ${topN}):</b><br>`;
+        resultText += `<div class='occurrence-list'><ul>`;
+        for (const v of topResults) {
+            resultText += `<li>${v.row['Date/Time']}: ${v.row[variable]}</li>`;
+        }
+        resultText += `</ul></div>`;
+    } else if (topResults.length > 0) {
+        const v = topResults[0];
+        resultText = `<b>${type === 'max' ? 'Maximum' : 'Minimum'} ${variable}:</b><br><b>${v.row['Date/Time']}</b> (with a value of ${v.val})`;
+    } else {
+        resultText = `<b>No results found.</b>`;
     }
-    resultText += `</ul></div>`;
     showResult(resultText);
     clearChart();
 }
