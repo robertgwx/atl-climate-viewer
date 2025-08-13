@@ -93,7 +93,14 @@
             <div class="col-md-2"><label for="countOp" class="form-label">Is</label><select id="countOp" class="form-select"><option value="ge">&gt;=</option><option value="le">&lt;=</option></select></div>
             <div class="col-md-2"><label for="countVal" class="form-label">Value</label><input id="countVal" type="number" class="form-control" value="30"></div>
             <div class="col-md-3"><label for="countMonth" class="form-label">Month</label><select id="countMonth" class="form-select"><option value="">All Months</option><option value="01">January</option><option value="02">February</option><option value="03">March</option><option value="04">April</option><option value="05">May</option><option value="06">June</option><option value="07">July</option><option value="08">August</option><option value="09">September</option><option value="10">October</option><option value="11">November</option><option value="12">December</option></select></div>
-            <div class="col-md-2"><label for="countYear" class="form-label">Year</label><input id="countYear" type="number" class="form-control" placeholder="All Years"></div>
+            <div class="col-md-2">
+                <label for="countYearStart" class="form-label">Start Year</label>
+                <input id="countYearStart" type="number" class="form-control" placeholder="e.g. 2010">
+            </div>
+            <div class="col-md-2">
+                <label for="countYearEnd" class="form-label">End Year</label>
+                <input id="countYearEnd" type="number" class="form-control" placeholder="e.g. 2020">
+            </div>
         </div>
 
         <button id="analyzeBtn" class="btn btn-primary mt-3">Analyze</button>
@@ -144,7 +151,8 @@ const elements = {
     countOp: document.getElementById('countOp'),
     countVal: document.getElementById('countVal'),
     countMonth: document.getElementById('countMonth'),
-    countYear: document.getElementById('countYear'),
+    countYearStart: document.getElementById('countYearStart'),
+    countYearEnd: document.getElementById('countYearEnd'),
     // Precipitation analysis variable selection
     precipVariableDiv: document.getElementById('precipVariableDiv'),
     precipVarSelect: document.getElementById('precipVarSelect')
@@ -486,45 +494,93 @@ function analyzeCountOccurrences() {
     const variable = elements.countVar.value;
     const op = elements.countOp.value;
     const value = parseFloat(elements.countVal.value);
-    const year = elements.countYear.value;
+    const yearStart = elements.countYearStart.value;
+    const yearEnd = elements.countYearEnd.value;
     const month = elements.countMonth.value;
 
     if (!variable) { showResult("No numeric variables available to analyze."); return; }
     if (isNaN(value)) { showResult("Please enter a numeric value to count against."); return; }
 
     let filteredData = climateData;
-    if (year) { filteredData = filteredData.filter(row => row['Date/Time'] && row['Date/Time'].startsWith(year)); }
     if (month) { filteredData = filteredData.filter(row => row['Date/Time'] && row['Date/Time'].substring(5, 7) === month); }
-    if (filteredData.length === 0) { showResult("No data found for the selected period."); return; }
+    if (filteredData.length === 0) { showResult("No data found for the selected period."); clearChart(); return; }
 
-    // List matches
+    // Aggregate matches by year
+    let yearCounts = {};
     let matches = [];
     for (const row of filteredData) {
+        const dateStr = row["Date/Time"];
+        if (!dateStr || dateStr.length < 4) continue;
+        const rowYear = dateStr.substring(0, 4);
         const rowVal = parseFloat(row[variable]);
         if (isNaN(rowVal)) continue;
         if ((op === 'ge' && rowVal >= value) || (op === 'le' && rowVal <= value)) {
-            matches.push({date: row["Date/Time"], val: rowVal});
+            matches.push({date: dateStr, val: rowVal, year: rowYear});
+            if (!yearCounts[rowYear]) yearCounts[rowYear] = 0;
+            yearCounts[rowYear]++;
         }
     }
+
+    // Filter years by range
+    let years = Object.keys(yearCounts).sort();
+    if (yearStart && yearEnd) {
+        years = years.filter(y => y >= yearStart && y <= yearEnd);
+    } else if (yearStart) {
+        years = years.filter(y => y === yearStart);
+    } else if (yearEnd) {
+        years = years.filter(y => y === yearEnd);
+    }
+
+    // Prepare chart data
+    const chartLabels = years;
+    const chartData = years.map(y => yearCounts[y] || 0);
+
+    // Result text
     const monthNames = ["", "January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
     let periodStr = "";
     if (month) periodStr += monthNames[parseInt(month)] + " ";
-    if (year) periodStr += year;
+    if (yearStart && yearEnd) periodStr += `${yearStart}-${yearEnd}`;
+    else if (yearStart) periodStr += yearStart;
+    else if (yearEnd) periodStr += yearEnd;
     if (!periodStr) periodStr = "the entire dataset";
     const opSymbol = op === 'ge' ? '&ge;' : '&le;';
-    let resultText = `Found <b>${matches.length}</b> occurrences where <b>${variable}</b> was <b>${opSymbol} ${value}</b> in <b>${periodStr}</b>.`;
+    let resultText = `Occurrences per year where <b>${variable}</b> was <b>${opSymbol} ${value}</b> in <b>${periodStr}</b>:`;
 
     if (matches.length > 0) {
         resultText += `<br><div class="occurrence-list"><ul>`;
         for (const occ of matches) {
-            resultText += `<li>${occ.date}: ${occ.val}</li>`;
+            if (years.includes(occ.year)) {
+                resultText += `<li>${occ.date}: ${occ.val}</li>`;
+            }
         }
         resultText += `</ul></div>`;
     } else {
         resultText += "<br>No occurrences found.";
     }
     showResult(resultText);
+
     clearChart();
+    if (chartLabels.length > 0) {
+        chart = new Chart(elements.resultChart, {
+            type: 'bar',
+            data: {
+                labels: chartLabels,
+                datasets: [{
+                    label: `${variable} Occurrences`,
+                    data: chartData,
+                    backgroundColor: 'rgba(255,99,132,0.7)'
+                }]
+            },
+            options: {
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        title: {display:true, text: 'Occurrences'}
+                    }
+                }
+            }
+        });
+    }
 }
 
 // Precipitation Analysis, for any chosen variable:
