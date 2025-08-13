@@ -120,6 +120,8 @@ let climateData = [];
 let chart = null;
 let lastDateFoundIndex = -1; // State for the "Find Previous" feature
 let lastResultHtml = ''; // store the last shown result so we can move to history after first click
+let maxMinResults = [];
+let maxMinCurrentIndex = -1;
 
 // --- DOM Element Cache ---
 const elements = {
@@ -146,6 +148,8 @@ const elements = {
     findType: document.getElementById('findType'),
     findMonth: document.getElementById('findMonth'),
     findYear: document.getElementById('findYear'),
+    findNextBtn: document.getElementById('findNextBtn'),
+    findTopN: document.getElementById('findTopN'),
     // Count Occurrences
     countVar: document.getElementById('countVar'),
     countOp: document.getElementById('countOp'),
@@ -236,6 +240,20 @@ elements.analyzeBtn.addEventListener('click', function() {
 });
 
 elements.findPrevBtn.addEventListener('click', findPreviousDate);
+elements.findNextBtn.addEventListener('click', function() {
+    if (maxMinResults.length > 1 && maxMinCurrentIndex < maxMinResults.length - 1) {
+        maxMinCurrentIndex++;
+        const v = maxMinResults[maxMinCurrentIndex];
+        let resultText = `<b>Next ${elements.findType.value === 'max' ? 'Maximum' : 'Minimum'} ${elements.findVar.value}:</b> ${v.val}<br>`;
+        resultText += `<div class="occurrence-list"><ul>`;
+        resultText += `<li>${v.row['Date/Time']}: ${v.row[elements.findVar.value]}</li>`;
+        resultText += `</ul></div>`;
+        showResult(resultText);
+    }
+    if (maxMinCurrentIndex >= maxMinResults.length - 1) {
+        elements.findNextBtn.classList.add('d-none');
+    }
+});
 
 // --- DATA HANDLING ---
 function fetchData(filename) {
@@ -460,31 +478,35 @@ function findPreviousDate() {
 
 function analyzeOverallMaxMin() {
     const variable = elements.findVar.value;
-    const findType = elements.findType.value;
-    const year = elements.findYear.value;
+    const type = elements.findType.value;
     const month = elements.findMonth.value;
-    if (!variable) { showResult("No numeric variables available to analyze."); return; }
+    const year = elements.findYear.value;
+    const topN = parseInt(elements.findTopN.value);
+    if (!variable) { showResult("No variable selected."); return; }
     let filteredData = climateData;
-    if (year) { filteredData = filteredData.filter(row => row['Date/Time'] && row['Date/Time'].startsWith(year)); }
-    if (month) { filteredData = filteredData.filter(row => row['Date/Time'] && row['Date/Time'].substring(5, 7) === month); }
-    if (filteredData.length === 0) { showResult("No data found for the selected period."); return; }
-    let targetRow = null;
-    let targetVal = (findType === 'max') ? -Infinity : Infinity;
-    for (const row of filteredData) {
-        const value = parseFloat(row[variable]);
-        if (isNaN(value)) continue;
-        if ((findType === 'max' && value > targetVal) || (findType === 'min' && value < targetVal)) {
-            targetVal = value;
-            targetRow = row;
-        }
+    if (year) filteredData = filteredData.filter(row => row['Date/Time'] && row['Date/Time'].startsWith(year));
+    if (month) filteredData = filteredData.filter(row => row['Date/Time'] && row['Date/Time'].substring(5, 7) === month);
+    let values = filteredData.map(row => ({val: parseFloat(row[variable]), row})).filter(v => !isNaN(v.val));
+    if (values.length === 0) { showResult("No data found for the selected period."); return; }
+
+    // Sort and get top N
+    let sorted;
+    if (type === 'max') {
+        sorted = values.sort((a, b) => b.val - a.val);
+    } else {
+        sorted = values.sort((a, b) => a.val - b.val);
     }
-    if (!targetRow) { showResult(`No valid data for '${variable}' in the selected period.`); return; }
-    const monthNames = ["", "January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
-    let periodStr = "";
-    if (month) periodStr += monthNames[parseInt(month)] + " ";
-    if (year) periodStr += year;
-    if (!periodStr) periodStr = "all-time";
-        const resultText = `The <b>${periodStr}</b> <b>${findType}imum ${variable}</b> is <b>${targetVal}</b> on <b>${targetRow['Date/Time']}</b>.`;
+    let topResults = topN && topN > 0 ? sorted.slice(0, topN) : [sorted[0]];
+    maxMinResults = topResults;
+    maxMinCurrentIndex = 0;
+    elements.findNextBtn.classList.toggle('d-none', topResults.length <= 1);
+
+    let resultText = `<b>${type === 'max' ? 'Maximum' : 'Minimum'} ${variable}${topN && topN > 1 ? ` (Top ${topN})` : ''}:</b><br>`;
+    resultText += `<div class="occurrence-list"><ul>`;
+    for (const v of topResults) {
+        resultText += `<li>${v.row['Date/Time']}: ${v.row[variable]}</li>`;
+    }
+    resultText += `</ul></div>`;
     showResult(resultText);
     clearChart();
 }
