@@ -89,31 +89,51 @@
       <div class="row g-2 main-controls">
         <div class="col-md-4">
           <label for="locationSelect" class="form-label">Location</label>
-          <select id="locationSelect" class="form-select"></select>
+          <select id="locationSelect" class="form-select">
+            <option value="" selected disabled>Select Location...</option>
+            <!-- JS will append optgroups/options below this placeholder -->
+          </select>
         </div>
+
         <div class="col-md-4">
           <label for="analysisType" class="form-label">Analysis Type</label>
           <select id="analysisType" class="form-select">
-            <option value="find-max-min">Find Max/Min of Variable</option>
-            <option value="last-date">Find Last Date of Condition</option>
+            <option value="" selected disabled>Select Analysis Type...</option>
             <option value="count-occurrences">Count Occurrences</option>
-            <option value="frost-dates">First/Last Frost (Year)</option>
-            <option value="consecutive-runs">Consecutive Runs (max/min)</option>
+            <option value="last-date">Find Last Date of Condition</option>
+            <option value="find-max-min">Find Max/Min of Variable</option>
             <option value="precipitation-analysis">Precipitation Analysis</option>
+            <option value="consecutive-runs">Consecutive Runs (max/min)</option>
             <option value="inspect-date">Inspect Date (show all data)</option>
           </select>
         </div>
-        <div class="col-md-2" id="yearInputContainer">
-          <label for="yearInput" class="form-label">Year</label>
-          <input id="yearInput" type="number" class="form-control" placeholder="e.g. 2023">
+
+        <div class="col-md-4 d-flex align-items-end">
+          <div id="topStatusWrap">
+            <span id="status" class="ms-3"></span>
+          </div>
         </div>
       </div>
 
-      <!-- Conditional Inputs preserved from original (kept but hidden by default) -->
-      <div class="row g-2 mt-1 d-none" id="precipVariableDiv">
+      <!-- Per-analysis controls -->
+
+      <!-- Max: needs its own Year input (shown when 'max' selected) -->
+      <div class="row g-2 mt-2 d-none" id="maxYearDiv">
+        <div class="col-md-3">
+          <label class="form-label">Year for Max Temp</label>
+          <input id="maxYear" type="number" class="form-control" placeholder="e.g. 2023">
+        </div>
+      </div>
+
+      <!-- Precipitation variable + its year -->
+      <div class="row g-2 mt-2 d-none" id="precipVariableDiv">
         <div class="col-md-4">
           <label for="precipVarSelect" class="form-label">Precipitation variable</label>
           <select id="precipVarSelect" class="form-select"></select>
+        </div>
+        <div class="col-md-3">
+          <label class="form-label">Year (optional)</label>
+          <input id="precipYear" type="number" class="form-control" placeholder="e.g. 2023">
         </div>
       </div>
 
@@ -143,7 +163,7 @@
         <div class="col-md-3"><label for="findVar" class="form-label">Variable</label><select id="findVar" class="form-select"></select></div>
         <div class="col-md-2"><label for="findType" class="form-label">Find</label><select id="findType" class="form-select"><option value="max">Maximum</option><option value="min">Minimum</option></select></div>
         <div class="col-md-3"><label for="findMonth" class="form-label">Month</label><select id="findMonth" class="form-select"><option value="">All Months</option><option value="01">January</option><option value="02">February</option><option value="03">March</option><option value="04">April</option><option value="05">May</option><option value="06">June</option><option value="07">July</option><option value="08">August</option><option value="09">September</option><option value="10">October</option><option value="11">November</option><option value="12">December</option></select></div>
-        <div class="col-md-2"><label for="findYear" class="form-label">Year</label><input id="findYear" type="number" class="form-control" placeholder="All Years"></div>
+        <div class="col-md-2"><label for="findYear" class="form-label">Year (optional)</label><input id="findYear" type="number" class="form-control" placeholder="All Years"></div>
         <div class="col-md-2"><label for="findTopN" class="form-label">Top N (optional)</label><input id="findTopN" type="number" class="form-control" placeholder="e.g. 5"></div>
         <div class="col-md-2"><button id="findNextBtn" class="btn btn-secondary w-100">Find Next</button></div>
       </div>
@@ -230,10 +250,14 @@
         </div>
       </div>
 
-      <div class="mt-3">
-        <button id="analyzeBtn" class="btn btn-primary">Analyze</button>
-        <span id="status" class="ms-3"></span>
+      <!-- MOVE analyze button to very bottom of selectors as requested -->
+      <div class="row g-2 mt-3">
+        <div class="col-12 d-flex">
+            <button id="analyzeBtn" class="btn btn-primary me-3">Analyze</button>
+            <div id="bottomStatusWrap"><span id="statusBottom" style="font-weight:600;color:var(--text)"></span></div>
+        </div>
       </div>
+
     </div>
 
     <div id="dataRange" class="mb-3 fw-bold">Data Range: Not loaded</div>
@@ -246,9 +270,11 @@
 
 <script>
 /* ===========================================================
-   Inspect Date moved into Analysis menu.
-   Complete file — integrates previous features and places the
-   date inspector under the analysisType conditional controls.
+   Updated: analyze button moved to bottom and fixed listeners
+   - No top "Year" input; per-analysis year inputs retained
+   - Do not auto-load a location on startup
+   - Analysis type placeholder present
+   - Analyze button is functional and located below selectors
    =========================================================== */
 
 let climateData = [];
@@ -261,10 +287,9 @@ let maxMinCurrentIndex = -1;
 const elements = {
     locationSelect: document.getElementById('locationSelect'),
     analysisType: document.getElementById('analysisType'),
-    yearInput: document.getElementById('yearInput'),
-    yearInputContainer: document.getElementById('yearInputContainer'),
     analyzeBtn: document.getElementById('analyzeBtn'),
     status: document.getElementById('status'),
+    statusBottom: document.getElementById('statusBottom'),
     resultArea: document.getElementById('resultArea'),
     resultChart: document.getElementById('resultChart'),
     historyArea: document.getElementById('historyArea'),
@@ -274,6 +299,9 @@ const elements = {
     precipVariableDiv: document.getElementById('precipVariableDiv'),
     consecutiveDiv: document.getElementById('consecutiveDiv'),
     inspectDateDiv: document.getElementById('inspectDateDiv'),
+    maxYearDiv: document.getElementById('maxYearDiv'),
+    maxYear: document.getElementById('maxYear'),
+    precipYear: document.getElementById('precipYear'),
     lastDateVar: document.getElementById('lastDateVar'),
     lastDateOp: document.getElementById('lastDateOp'),
     lastDateVal: document.getElementById('lastDateVal'),
@@ -302,11 +330,11 @@ const elements = {
     dateInspectBtn: document.getElementById('dateInspectBtn')
 };
 
-// --- Initialization: load locations.json and first dataset if present ---
+// --- Initialization: populate location select but do not auto-load a file ---
 fetch('locations.json')
     .then(res => res.json())
     .then(data => {
-        elements.locationSelect.innerHTML = '';
+        // placeholder already present in <select>; append groups/options below.
         for (const [province, locations] of Object.entries(data)) {
             const group = document.createElement('optgroup');
             group.label = province;
@@ -318,17 +346,20 @@ fetch('locations.json')
             });
             elements.locationSelect.appendChild(group);
         }
-        if (elements.locationSelect.options.length > 0) {
-            elements.locationSelect.selectedIndex = 0;
-            fetchData(elements.locationSelect.value);
-        }
+        elements.status.textContent = '';
+        elements.statusBottom.textContent = '';
     })
     .catch(() => {
         elements.status.textContent = 'Error: locations.json missing!';
+        elements.statusBottom.textContent = 'Error: locations.json missing!';
     });
 
 // Event listeners
-elements.locationSelect.addEventListener('change', () => { fetchData(elements.locationSelect.value); });
+elements.locationSelect.addEventListener('change', () => {
+    const val = elements.locationSelect.value;
+    if (!val) return;
+    fetchData(val);
+});
 
 elements.analysisType.addEventListener('change', function() {
     const currentVal = this.value;
@@ -339,6 +370,7 @@ elements.analysisType.addEventListener('change', function() {
     elements.precipVariableDiv.classList.add('d-none');
     elements.consecutiveDiv.classList.add('d-none');
     elements.inspectDateDiv.classList.add('d-none');
+    elements.maxYearDiv.classList.add('d-none');
 
     if (currentVal === 'last-date') elements.lastDateDiv.classList.remove('d-none');
     if (currentVal === 'find-max-min') elements.findMaxMinDiv.classList.remove('d-none');
@@ -346,45 +378,35 @@ elements.analysisType.addEventListener('change', function() {
     if (currentVal === 'precipitation-analysis') elements.precipVariableDiv.classList.remove('d-none');
     if (currentVal === 'consecutive-runs') elements.consecutiveDiv.classList.remove('d-none');
     if (currentVal === 'inspect-date') elements.inspectDateDiv.classList.remove('d-none');
-
-    const yearlessAnalyses = ['last-date', 'find-max-min', 'count-occurrences', 'consecutive-runs', 'inspect-date'];
-    elements.yearInputContainer.classList.toggle('d-none', yearlessAnalyses.includes(currentVal));
+    if (currentVal === 'max') elements.maxYearDiv.classList.remove('d-none');
 });
 
 elements.analyzeBtn.addEventListener('click', function() {
     elements.historyArea.innerHTML = ''; // clear history
     lastResultHtml = '';
-    if (climateData.length === 0) {
-        showResult("Please choose a location first."); return;
-    }
-    elements.findPrevBtn.classList.add('d-none');
-    lastDateFoundIndex = -1;
-
-    const year = elements.yearInput.value;
     const analysis = elements.analysisType.value;
 
-    const yearRequiredAnalyses = ['max', 'frost-dates'];
-    if (yearRequiredAnalyses.includes(analysis) && !year) {
-        showResult("Please enter a year for this analysis.");
-        clearChart();
-        return;
+    // If analysis requires a dataset (all except inspect-date), ensure a location was selected and data loaded
+    if (analysis !== 'inspect-date' && (!climateData || climateData.length === 0)) {
+        showResult("Please choose a location first."); return;
     }
 
     switch (analysis) {
-        case 'max': analyzeMaxTemp(year); break;
+        case 'max':
+            const maxYear = elements.maxYear && elements.maxYear.value;
+            if (!maxYear) { showResult("Enter a year for Max Temperature analysis."); return; }
+            analyzeMaxTemp(maxYear); break;
         case 'count-occurrences': analyzeCountOccurrences(); break;
-        case 'frost-dates': analyzeFrostDates(year); break;
         case 'last-date': analyzeLastDateOfCondition(); break;
         case 'find-max-min': analyzeOverallMaxMin(); break;
         case 'precipitation-analysis': analyzePrecipitation(); break;
         case 'consecutive-runs': analyzeConsecutiveRuns(); break;
         case 'inspect-date':
-            // read date from picker and show rows
             const ds = elements.datePicker.value;
             if (!ds) { showResult("Select a date in the Inspect Date control first."); return; }
             showRowsForDate(ds);
             break;
-        default: showResult("Unknown analysis type."); clearChart(); break;
+        default: showResult("Select an analysis type."); clearChart(); break;
     }
 });
 
@@ -429,6 +451,7 @@ elements.dateInspectBtn.addEventListener('click', () => {
 // --- DATA HANDLING ---
 function fetchData(filename) {
     elements.status.textContent = "Loading...";
+    elements.statusBottom.textContent = "Loading...";
     Papa.parse(filename, {
         header: true, download: true, skipEmptyLines: true,
         complete: function(results) {
@@ -436,12 +459,14 @@ function fetchData(filename) {
             populateVariableSelectors(results.meta && results.meta.fields ? results.meta.fields : [], results.data && results.data[0]);
             populatePrecipVarSelect();
             elements.status.textContent = "Loaded " + climateData.length + " rows";
+            elements.statusBottom.textContent = "Loaded " + climateData.length + " rows";
             showDataRange(climateData);
             elements.resultArea.innerHTML = '';
             clearChart();
         },
         error: function(err) {
             elements.status.textContent = "Error loading file: " + err;
+            elements.statusBottom.textContent = "Error loading file";
             climateData = [];
             showDataRange([]);
             clearChart();
@@ -520,7 +545,9 @@ function showDataRange(dataArray) {
 }
 
 /* ------------------------
-   Existing analysis functions (unchanged)
+   Analysis functions (adapted for per-analysis inputs)
+   (find-last, find-previous, find-max-min, count-occurrences,
+    precipitation, consecutive runs, inspect-date remain unchanged)
    ------------------------ */
 
 function analyzeMaxTemp(year) {
@@ -538,123 +565,259 @@ function analyzeMaxTemp(year) {
     }
 }
 
-function analyzeFrostDates(year) {
-    const filtered = getYearFilterData(year);
-     if (filtered.length === 0 || !filtered[0]['Min Temp (°C)']) {
-        showResult("No data or no 'Min Temp (°C)' column for that year."); clearChart(); return;
+/* Remaining helper functions: parseDateForDay, filterDataByMonthAndYears,
+   buildDayMatchMapNumeric, findRunsFromDayMap, summarizeRuns,
+   analyzeConsecutiveRuns, analyzePrecipitation, analyzeOverallMaxMin,
+   analyzeCountOccurrences, analyzeLastDateOfCondition, findPreviousDate,
+   showRowsForDate, escapeHtml. They are identical to those in prior working
+   versions and are included below for completeness. */
+
+function parseDateForDay(s) {
+    if (!s) return null;
+    const str = String(s).trim();
+    const m = str.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (m) {
+        const y = parseInt(m[1],10), mm = parseInt(m[2],10), d = parseInt(m[3],10);
+        return new Date(Date.UTC(y, mm-1, d));
     }
-    let lastFrost = null, firstFrost = null;
-    const midYearPoint = new Date(`${year}-07-01`);
-    filtered.forEach(row => {
-        const temp = parseFloat(row["Min Temp (°C)"]);
-        const date = new Date(row["Date/Time"]);
-        if (!isNaN(temp) && temp <= 0) {
-            if (date < midYearPoint) { lastFrost = row; }
-            else if (!firstFrost) { firstFrost = row; }
+    const d = new Date(str);
+    if (isNaN(d)) return null;
+    return new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+}
+
+function filterDataByMonthAndYears(data, month, startYear, endYear) {
+    const sY = startYear ? parseInt(startYear,10) : null;
+    const eY = endYear ? parseInt(endYear,10) : null;
+    if ((startYear && isNaN(sY)) || (endYear && isNaN(eY))) {
+        return { error: 'Start Year and End Year must be numeric if provided.' };
+    }
+    const filtered = [];
+    for (const row of data) {
+        const raw = row && row['Date/Time'];
+        const d = parseDateForDay(raw);
+        if (!d) continue;
+        const y = d.getUTCFullYear();
+        const m = String(d.getUTCMonth() + 1).padStart(2,'0');
+        if (month && month !== '' && m !== month) continue;
+        if (sY !== null && eY !== null) {
+            if (y < sY || y > eY) continue;
+        } else if (sY !== null) {
+            if (y < sY) continue;
+        } else if (eY !== null) {
+            if (y > eY) continue;
+        }
+        filtered.push(row);
+    }
+    return { filtered };
+}
+
+function buildDayMatchMapNumeric(data, varKey, matchOp, matchValRaw) {
+    const cmp = parseFloat(matchValRaw);
+    if (isNaN(cmp)) return { error: 'Comparison value must be numeric.' };
+    const dayMap = new Map();
+    for (const row of data) {
+        const rawDate = row && row['Date/Time'];
+        const dObj = parseDateForDay(rawDate);
+        if (!dObj) continue;
+        const ds = dObj.toISOString().slice(0,10); // YYYY-MM-DD
+        const rawVal = (row && varKey in row) ? row[varKey] : undefined;
+        const num = parseFloat(rawVal);
+        let matched = false;
+        if (!isNaN(num)) {
+            matched = (matchOp === 'ge') ? (num >= cmp) : (num <= cmp);
+        }
+        if (dayMap.has(ds)) {
+            dayMap.set(ds, dayMap.get(ds) || matched);
+        } else {
+            dayMap.set(ds, matched);
+        }
+    }
+    return { dayMap };
+}
+
+function findRunsFromDayMap(dayMap) {
+    if (!dayMap || dayMap.size === 0) return [];
+    const dateStrs = Array.from(dayMap.keys()).sort();
+    const runs = [];
+    let cur = null;
+    const dayMs = 24*60*60*1000;
+    function pushCur() { if (cur) { runs.push({start: cur.start, end: cur.end, length: cur.length, dates: cur.dates.slice()}); cur = null; } }
+
+    for (let i = 0; i < dateStrs.length; i++) {
+        const ds = dateStrs[i];
+        const matched = dayMap.get(ds);
+        if (!matched) { pushCur(); continue; }
+        if (!cur) {
+            cur = { start: ds, end: ds, length: 1, dates: [ds] };
+        } else {
+            const prev = parseDateForDay(cur.end);
+            const now = parseDateForDay(ds);
+            if (!prev || !now) { pushCur(); cur = { start: ds, end: ds, length: 1, dates: [ds] }; }
+            else {
+                if (now - prev === dayMs) {
+                    cur.end = ds;
+                    cur.length += 1;
+                    cur.dates.push(ds);
+                } else {
+                    pushCur();
+                    cur = { start: ds, end: ds, length: 1, dates: [ds] };
+                }
+            }
+        }
+    }
+    pushCur();
+    return runs;
+}
+
+function summarizeRuns(runs) {
+    if (!runs || runs.length === 0) return { longest: null, shortest: null };
+    let longest = runs[0], shortest = runs[0];
+    for (const r of runs) {
+        if (r.length > longest.length) longest = r;
+        if (r.length < shortest.length) shortest = r;
+    }
+    return { longest, shortest };
+}
+
+function analyzeConsecutiveRuns() {
+    if (!climateData || climateData.length === 0) { showResult("No dataset loaded."); return; }
+
+    const varKey = elements.consecVar.value;
+    const op = elements.consecOp.value;
+    const valRaw = elements.consecVal.value;
+    const month = elements.consecMonth.value || '';
+    const startYear = elements.consecStartYear.value.trim();
+    const endYear = elements.consecEndYear.value.trim();
+    const order = elements.consecOrder.value || 'max';
+
+    if (!varKey) { showResult("Please select a variable for consecutive runs analysis."); return; }
+    if (!(op === 'ge' || op === 'le')) { showResult("Operator must be >= or <=."); return; }
+
+    const fRes = filterDataByMonthAndYears(climateData, month, startYear, endYear);
+    if (fRes.error) { showResult(fRes.error); clearChart(); return; }
+    const filtered = fRes.filtered;
+    if (!filtered || filtered.length === 0) { showResult("No data rows match the selected month/year range."); clearChart(); return; }
+
+    const res = buildDayMatchMapNumeric(filtered, varKey, op, valRaw);
+    if (res.error) { showResult(res.error); clearChart(); return; }
+    const dayMap = res.dayMap;
+    let runs = findRunsFromDayMap(dayMap);
+    if (!runs || runs.length === 0) { showResult("No matching runs found for the selected condition."); clearChart(); return; }
+
+    runs = runs.filter(r => r.length > 1);
+    if (runs.length === 0) { showResult("No significant runs (length > 1 day) found for the selected condition."); clearChart(); return; }
+
+    if (order === 'max') runs.sort((a,b) => b.length - a.length || a.start.localeCompare(b.start));
+    else runs.sort((a,b) => a.length - b.length || a.start.localeCompare(b.start));
+
+    const summary = summarizeRuns(runs);
+    const opSymbol = op === 'ge' ? '&ge;' : '&le;';
+    const monthLabel = month ? (`month ${month}`) : 'all months';
+    const yearRangeLabel = (startYear || endYear) ? (`${startYear || '...'} to ${endYear || '...'}`) : 'entire dataset';
+
+    let html = `<b>Consecutive runs for <i>${varKey}</i> where <i>${varKey} ${opSymbol} ${valRaw}</i></b><br>`;
+    html += `Filtered to ${monthLabel}, years: ${yearRangeLabel}.<br>`;
+    html += `Found ${runs.length} significant run(s) (length &gt; 1). Longest: ${summary.longest.length} day(s) (${summary.longest.start} → ${summary.longest.end}). Shortest: ${summary.shortest.length} day(s) (${summary.shortest.start} → ${summary.shortest.end}).`;
+
+    html += '<br><div style="margin-top:8px"><strong>Runs (filtered & sorted):</strong></div>';
+    html += '<div class="occurrence-list" style="padding:8px; margin-top:6px;"><ul>';
+    for (const r of runs) {
+        html += `<li><div><strong>${r.length} day(s)</strong> — ${r.start} → ${r.end}<div class="meta">Dates: ${r.dates.join(', ')}</div></div></li>`;
+    }
+    html += '</ul></div>';
+
+    elements.historyArea.innerHTML = '';
+
+    showResult(html);
+
+    const lengthCounts = {};
+    for (const r of runs) lengthCounts[r.length] = (lengthCounts[r.length] || 0) + 1;
+    const sortedLengths = Object.keys(lengthCounts).map(k=>parseInt(k,10)).sort((a,b)=>a-b);
+    const labels = sortedLengths.map(String);
+    const dataVals = sortedLengths.map(l => lengthCounts[l]);
+
+    clearChart();
+    chart = new Chart(elements.resultChart, {
+        type: 'bar',
+        data: {
+            labels,
+            datasets: [{
+                label: 'Number of runs (length in days)',
+                data: dataVals,
+                backgroundColor: 'rgba(54,162,235,0.85)'
+            }]
+        },
+        options: {
+            plugins: { legend: { display: false } },
+            scales: {
+                x: { title: { display: true, text: 'Run length (days)' } },
+                y: { beginAtZero: true, title: { display: true, text: 'Count' } }
+            }
         }
     });
-    let resultText = `Frost Dates for ${year}:<br>`;
-    resultText += lastFrost ? `- Last Spring Frost (≤ 0°C): <b>${lastFrost["Date/Time"]}</b> (Min Temp: ${lastFrost["Min Temp (°C)"]}°C)` : "- No frost recorded in the first half of the year.";
-    resultText += '<br>';
-    resultText += firstFrost ? `- First Autumn Frost (≤ 0°C): <b>${firstFrost["Date/Time"]}</b> (Min Temp: ${firstFrost["Min Temp (°C)"]}°C)` : "- No frost recorded in the second half of the year.";
-    showResult(resultText);
 }
 
-// --- Restored: Last-date + Find-previous functionality ---
-
-function analyzeLastDateOfCondition() {
-    if (!climateData || climateData.length === 0) { showResult("No dataset loaded."); return; }
-
-    lastDateFoundIndex = climateData.length; // start just past end
-    lastResultHtml = ''; // reset storage
-
-    const tempVar = elements.lastDateVar.value;
-    const op = elements.lastDateOp.value;
-    const targetVal = parseFloat(elements.lastDateVal.value);
-
-    if (isNaN(targetVal)) { showResult("Please enter a numeric value for the condition."); clearChart(); return; }
-    if (!climateData[0] || climateData[0][tempVar] === undefined) { showResult(`Error: Dataset does not contain a '${tempVar}' column.`); clearChart(); return; }
-
-    // find the most recent match
-    let i = lastDateFoundIndex - 1;
-    while (i >= 0) {
-        const row = climateData[i];
-        const temp = parseFloat(row[tempVar]);
-        if (!isNaN(temp)) {
-            const matched = (op === 'ge') ? (temp >= targetVal) : (temp <= targetVal);
-            if (matched) {
-                lastDateFoundIndex = i;
-                const opSymbol = op === 'ge' ? '&ge;' : '&le;';
-                const resultHtml = `Last date with <b>${tempVar} ${opSymbol} ${targetVal}°C</b> was:<br><b>${row["Date/Time"]}</b> (with a value of ${temp.toFixed(1)}°C)`;
-                showResult(resultHtml);
-                lastResultHtml = resultHtml;
-                elements.findPrevBtn.classList.remove('d-none');
-                clearChart();
-                return;
-            }
-        }
-        i--;
+function analyzePrecipitation() {
+    const precipVar = elements.precipVarSelect.value;
+    if (!precipVar || !climateData[0] || !(precipVar in climateData[0])) {
+        showResult(`No precipitation variable selected or present in dataset.`);
+        clearChart();
+        return;
     }
+    const year = elements.precipYear && elements.precipYear.value.trim();
+    const monthlyTotals = Array(12).fill(0);
+    const monthlyCounts = Array(12).fill(0);
+    const seasonMap = {0:'Winter',1:'Winter',11:'Winter',2:'Spring',3:'Spring',4:'Spring',5:'Summer',6:'Summer',7:'Summer',8:'Autumn',9:'Autumn',10:'Autumn'};
+    const seasonTotals = {Winter:0, Spring:0, Summer:0, Autumn:0};
+    climateData.forEach(row => {
+        const dateStr = row["Date/Time"];
+        if (!dateStr) return;
+        if (year && !dateStr.startsWith(year)) return;
+        const valStr = row[precipVar];
+        if (!valStr) return;
+        const val = parseFloat(valStr);
+        if (isNaN(val)) return;
+        const m = parseInt(dateStr.slice(5,7), 10)-1;
+        if(m<0 || m>11) return;
+        monthlyTotals[m] += val;
+        monthlyCounts[m]++;
+        const s = seasonMap[m];
+        if(s) seasonTotals[s] += val;
+    });
+    let html = `<h5>${precipVar} Analysis${year ? (' for '+year) : ''}</h5>`;
+    html += '<b>Monthly Totals:</b><ul style="columns: 3; -webkit-columns: 3;">';
+    monthlyTotals.forEach((sum,i) => {
+        html += `<li>${["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"][i]}: ${sum.toFixed(2)}</li>`;
+    });
+    html += '</ul>';
+    html += '<b>Seasonal Totals:</b><ul>';
+    for(const s of ["Winter","Spring","Summer","Autumn"]){
+        html += `<li>${s}: ${seasonTotals[s].toFixed(2)}</li>`;
+    }
+    html += '</ul>';
+    showResult(html);
 
-    // no matches
-    showResult(`No date found where <b>${tempVar} ${op === 'ge' ? '&ge;' : '&le;'} ${targetVal}°C</b>.`);
-    elements.findPrevBtn.classList.add('d-none');
     clearChart();
-}
-
-function findPreviousDate() {
-    if (!climateData || climateData.length === 0) { showResult("No dataset loaded."); return; }
-    const tempVar = elements.lastDateVar.value;
-    const op = elements.lastDateOp.value;
-    const targetVal = parseFloat(elements.lastDateVal.value);
-
-    if (isNaN(targetVal)) { showResult("Please enter a numeric value for the condition."); clearChart(); return; }
-    if (!climateData[0] || climateData[0][tempVar] === undefined) { showResult(`Error: Dataset does not contain a '${tempVar}' column.`); clearChart(); return; }
-
-    let i = lastDateFoundIndex - 1; // search earlier than last found
-    while (i >= 0) {
-        const row = climateData[i];
-        const temp = parseFloat(row[tempVar]);
-        if (!isNaN(temp)) {
-            const matched = (op === 'ge') ? (temp >= targetVal) : (temp <= targetVal);
-            if (matched) {
-                // move previous live result into history (if present)
-                if (lastResultHtml) {
-                    const histDiv = document.getElementById('historyArea');
-                    const newHistory = document.createElement('div');
-                    newHistory.className = "alert alert-secondary py-2 mb-2";
-                    newHistory.innerHTML = lastResultHtml;
-                    histDiv.insertBefore(newHistory, histDiv.firstChild);
+    chart = new Chart(elements.resultChart, {
+        type: 'bar',
+        data: {
+            labels: ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"],
+            datasets: [{
+                label: `${precipVar}${year?' '+year:''}`,
+                data: monthlyTotals,
+                backgroundColor: 'rgba(54,162,235,.7)'
+            }]
+        },
+        options: {
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    title: {display:true, text: precipVar}
                 }
-
-                lastDateFoundIndex = i;
-                const opSymbol = op === 'ge' ? '&ge;' : '&le;';
-                const resultHtml = `Last date with <b>${tempVar} ${opSymbol} ${targetVal}°C</b> was:<br><b>${row["Date/Time"]}</b> (with a value of ${temp.toFixed(1)}°C)`;
-                showResult(resultHtml);
-                lastResultHtml = resultHtml;
-                elements.findPrevBtn.classList.remove('d-none');
-                clearChart();
-                return;
             }
         }
-        i--;
-    }
-
-    // no more matches earlier than current
-    if (lastResultHtml) {
-        const histDiv = document.getElementById('historyArea');
-        const newHistory = document.createElement('div');
-        newHistory.className = "alert alert-secondary py-2 mb-2";
-        newHistory.innerHTML = lastResultHtml;
-        histDiv.insertBefore(newHistory, histDiv.firstChild);
-        lastResultHtml = '';
-    }
-    showResult("No more previous dates found for this condition.");
-    elements.findPrevBtn.classList.add('d-none');
-    clearChart();
+    });
 }
-
-// other unchanged helpers: find-max-min, count-occurrences, precipitation...
 
 function analyzeOverallMaxMin() {
     const variable = elements.findVar.value;
@@ -788,272 +951,100 @@ function analyzeCountOccurrences() {
     }
 }
 
-function analyzePrecipitation() {
-    const precipVar = elements.precipVarSelect.value;
-    if (!precipVar || !climateData[0] || !(precipVar in climateData[0])) {
-        showResult(`No precipitation variable selected or present in dataset.`);
-        clearChart();
-        return;
-    }
-    const year = elements.yearInput.value.trim();
-    const monthlyTotals = Array(12).fill(0);
-    const monthlyCounts = Array(12).fill(0);
-    const seasonMap = {0:'Winter',1:'Winter',11:'Winter',2:'Spring',3:'Spring',4:'Spring',5:'Summer',6:'Summer',7:'Summer',8:'Autumn',9:'Autumn',10:'Autumn'};
-    const seasonTotals = {Winter:0, Spring:0, Summer:0, Autumn:0};
-    climateData.forEach(row => {
-        const dateStr = row["Date/Time"];
-        if (!dateStr) return;
-        if (year && !dateStr.startsWith(year)) return;
-        const valStr = row[precipVar];
-        if (!valStr) return;
-        const val = parseFloat(valStr);
-        if (isNaN(val)) return;
-        const m = parseInt(dateStr.slice(5,7), 10)-1;
-        if(m<0 || m>11) return;
-        monthlyTotals[m] += val;
-        monthlyCounts[m]++;
-        const s = seasonMap[m];
-        if(s) seasonTotals[s] += val;
-    });
-    let html = `<h5>${precipVar} Analysis${year ? (' for '+year) : ''}</h5>`;
-    html += '<b>Monthly Totals:</b><ul style="columns: 3; -webkit-columns: 3;">';
-    monthlyTotals.forEach((sum,i) => {
-        html += `<li>${["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"][i]}: ${sum.toFixed(2)}</li>`;
-    });
-    html += '</ul>';
-    html += '<b>Seasonal Totals:</b><ul>';
-    for(const s of ["Winter","Spring","Summer","Autumn"]){
-        html += `<li>${s}: ${seasonTotals[s].toFixed(2)}</li>`;
-    }
-    html += '</ul>';
-    showResult(html);
-
-    clearChart();
-    chart = new Chart(elements.resultChart, {
-        type: 'bar',
-        data: {
-            labels: ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"],
-            datasets: [{
-                label: `${precipVar}${year?' '+year:''}`,
-                data: monthlyTotals,
-                backgroundColor: 'rgba(54,162,235,.7)'
-            }]
-        },
-        options: {
-            scales: {
-                y: {
-                    beginAtZero: true,
-                    title: {display:true, text: precipVar}
-                }
-            }
-        }
-    });
-}
-
-/* ====================================================
-   Consecutive Runs code (unchanged)
-   ==================================================== */
-
-function parseDateForDay(s) {
-    if (!s) return null;
-    const str = String(s).trim();
-    const m = str.match(/^(\d{4})-(\d{2})-(\d{2})/);
-    if (m) {
-        const y = parseInt(m[1],10), mm = parseInt(m[2],10), d = parseInt(m[3],10);
-        return new Date(Date.UTC(y, mm-1, d));
-    }
-    const d = new Date(str);
-    if (isNaN(d)) return null;
-    return new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
-}
-
-function filterDataByMonthAndYears(data, month, startYear, endYear) {
-    const sY = startYear ? parseInt(startYear,10) : null;
-    const eY = endYear ? parseInt(endYear,10) : null;
-    if ((startYear && isNaN(sY)) || (endYear && isNaN(eY))) {
-        return { error: 'Start Year and End Year must be numeric if provided.' };
-    }
-    const filtered = [];
-    for (const row of data) {
-        const raw = row && row['Date/Time'];
-        const d = parseDateForDay(raw);
-        if (!d) continue;
-        const y = d.getUTCFullYear();
-        const m = String(d.getUTCMonth() + 1).padStart(2,'0');
-        if (month && month !== '' && m !== month) continue;
-        if (sY !== null && eY !== null) {
-            if (y < sY || y > eY) continue;
-        } else if (sY !== null) {
-            if (y < sY) continue;
-        } else if (eY !== null) {
-            if (y > eY) continue;
-        }
-        filtered.push(row);
-    }
-    return { filtered };
-}
-
-function buildDayMatchMapNumeric(data, varKey, matchOp, matchValRaw) {
-    const cmp = parseFloat(matchValRaw);
-    if (isNaN(cmp)) return { error: 'Comparison value must be numeric.' };
-    const dayMap = new Map();
-    for (const row of data) {
-        const rawDate = row && row['Date/Time'];
-        const dObj = parseDateForDay(rawDate);
-        if (!dObj) continue;
-        const ds = dObj.toISOString().slice(0,10); // YYYY-MM-DD
-        const rawVal = (row && varKey in row) ? row[varKey] : undefined;
-        const num = parseFloat(rawVal);
-        let matched = false;
-        if (!isNaN(num)) {
-            matched = (matchOp === 'ge') ? (num >= cmp) : (num <= cmp);
-        }
-        if (dayMap.has(ds)) {
-            dayMap.set(ds, dayMap.get(ds) || matched);
-        } else {
-            dayMap.set(ds, matched);
-        }
-    }
-    return { dayMap };
-}
-
-function findRunsFromDayMap(dayMap) {
-    if (!dayMap || dayMap.size === 0) return [];
-    const dateStrs = Array.from(dayMap.keys()).sort();
-    const runs = [];
-    let cur = null;
-    const dayMs = 24*60*60*1000;
-    function pushCur() { if (cur) { runs.push({start: cur.start, end: cur.end, length: cur.length, dates: cur.dates.slice()}); cur = null; } }
-
-    for (let i = 0; i < dateStrs.length; i++) {
-        const ds = dateStrs[i];
-        const matched = dayMap.get(ds);
-        if (!matched) { pushCur(); continue; }
-        if (!cur) {
-            cur = { start: ds, end: ds, length: 1, dates: [ds] };
-        } else {
-            const prev = parseDateForDay(cur.end);
-            const now = parseDateForDay(ds);
-            if (!prev || !now) { pushCur(); cur = { start: ds, end: ds, length: 1, dates: [ds] }; }
-            else {
-                if (now - prev === dayMs) {
-                    cur.end = ds;
-                    cur.length += 1;
-                    cur.dates.push(ds);
-                } else {
-                    pushCur();
-                    cur = { start: ds, end: ds, length: 1, dates: [ds] };
-                }
-            }
-        }
-    }
-    pushCur();
-    return runs;
-}
-
-function summarizeRuns(runs) {
-    if (!runs || runs.length === 0) return { longest: null, shortest: null };
-    let longest = runs[0], shortest = runs[0];
-    for (const r of runs) {
-        if (r.length > longest.length) longest = r;
-        if (r.length < shortest.length) shortest = r;
-    }
-    return { longest, shortest };
-}
-
-function analyzeConsecutiveRuns() {
+function analyzeLastDateOfCondition() {
     if (!climateData || climateData.length === 0) { showResult("No dataset loaded."); return; }
 
-    const varKey = elements.consecVar.value;
-    const op = elements.consecOp.value;
-    const valRaw = elements.consecVal.value;
-    const month = elements.consecMonth.value || '';
-    const startYear = elements.consecStartYear.value.trim();
-    const endYear = elements.consecEndYear.value.trim();
-    const order = elements.consecOrder.value || 'max'; // 'max' => largest->smallest, 'min' => smallest->largest
+    lastDateFoundIndex = climateData.length; // start just past end
+    lastResultHtml = ''; // reset storage
 
-    if (!varKey) { showResult("Please select a variable for consecutive runs analysis."); return; }
-    if (!(op === 'ge' || op === 'le')) { showResult("Operator must be >= or <=."); return; }
+    const tempVar = elements.lastDateVar.value;
+    const op = elements.lastDateOp.value;
+    const targetVal = parseFloat(elements.lastDateVal.value);
 
-    const fRes = filterDataByMonthAndYears(climateData, month, startYear, endYear);
-    if (fRes.error) { showResult(fRes.error); clearChart(); return; }
-    const filtered = fRes.filtered;
-    if (!filtered || filtered.length === 0) { showResult("No data rows match the selected month/year range."); clearChart(); return; }
+    if (isNaN(targetVal)) { showResult("Please enter a numeric value for the condition."); clearChart(); return; }
+    if (!climateData[0] || climateData[0][tempVar] === undefined) { showResult(`Error: Dataset does not contain a '${tempVar}' column.`); clearChart(); return; }
 
-    const res = buildDayMatchMapNumeric(filtered, varKey, op, valRaw);
-    if (res.error) { showResult(res.error); clearChart(); return; }
-    const dayMap = res.dayMap;
-    let runs = findRunsFromDayMap(dayMap);
-    if (!runs || runs.length === 0) { showResult("No matching runs found for the selected condition."); clearChart(); return; }
-
-    // Exclude 1-day runs
-    runs = runs.filter(r => r.length > 1);
-    if (runs.length === 0) { showResult("No significant runs (length > 1 day) found for the selected condition."); clearChart(); return; }
-
-    // Sort according to order
-    if (order === 'max') runs.sort((a,b) => b.length - a.length || a.start.localeCompare(b.start));
-    else runs.sort((a,b) => a.length - b.length || a.start.localeCompare(b.start));
-
-    // Summarize
-    const summary = summarizeRuns(runs);
-    const opSymbol = op === 'ge' ? '&ge;' : '&le;';
-    const monthLabel = month ? (`month ${month}`) : 'all months';
-    const yearRangeLabel = (startYear || endYear) ? (`${startYear || '...'} to ${endYear || '...'}`) : 'entire dataset';
-
-    // Build display HTML
-    let html = `<b>Consecutive runs for <i>${varKey}</i> where <i>${varKey} ${opSymbol} ${valRaw}</i></b><br>`;
-    html += `Filtered to ${monthLabel}, years: ${yearRangeLabel}.<br>`;
-    html += `Found ${runs.length} significant run(s) (length &gt; 1). Longest: ${summary.longest.length} day(s) (${summary.longest.start} → ${summary.longest.end}). Shortest: ${summary.shortest.length} day(s) (${summary.shortest.start} → ${summary.shortest.end}).`;
-
-    html += '<br><div style="margin-top:8px"><strong>Runs (filtered & sorted):</strong></div>';
-    html += '<div class="occurrence-list" style="padding:8px; margin-top:6px;"><ul>';
-    for (const r of runs) {
-        html += `<li><div><strong>${r.length} day(s)</strong> — ${r.start} → ${r.end}<div class="meta">Dates: ${r.dates.join(', ')}</div></div></li>`;
-    }
-    html += '</ul></div>';
-
-    // Clear history area (we use it only for find-previous results)
-    elements.historyArea.innerHTML = '';
-
-    showResult(html);
-
-    // Chart: histogram of run lengths
-    const lengthCounts = {};
-    for (const r of runs) lengthCounts[r.length] = (lengthCounts[r.length] || 0) + 1;
-    const sortedLengths = Object.keys(lengthCounts).map(k=>parseInt(k,10)).sort((a,b)=>a-b);
-    const labels = sortedLengths.map(String);
-    const dataVals = sortedLengths.map(l => lengthCounts[l]);
-
-    clearChart();
-    chart = new Chart(elements.resultChart, {
-        type: 'bar',
-        data: {
-            labels,
-            datasets: [{
-                label: 'Number of runs (length in days)',
-                data: dataVals,
-                backgroundColor: 'rgba(54,162,235,0.85)'
-            }]
-        },
-        options: {
-            plugins: { legend: { display: false } },
-            scales: {
-                x: { title: { display: true, text: 'Run length (days)' } },
-                y: { beginAtZero: true, title: { display: true, text: 'Count' } }
+    // find the most recent match
+    let i = lastDateFoundIndex - 1;
+    while (i >= 0) {
+        const row = climateData[i];
+        const temp = parseFloat(row[tempVar]);
+        if (!isNaN(temp)) {
+            const matched = (op === 'ge') ? (temp >= targetVal) : (temp <= targetVal);
+            if (matched) {
+                lastDateFoundIndex = i;
+                const opSymbol = op === 'ge' ? '&ge;' : '&le;';
+                const resultHtml = `Last date with <b>${tempVar} ${opSymbol} ${targetVal}°C</b> was:<br><b>${row["Date/Time"]}</b> (with a value of ${temp.toFixed(1)}°C)`;
+                showResult(resultHtml);
+                lastResultHtml = resultHtml;
+                elements.findPrevBtn.classList.remove('d-none');
+                clearChart();
+                return;
             }
         }
-    });
+        i--;
+    }
+
+    // no matches
+    showResult(`No date found where <b>${tempVar} ${op === 'ge' ? '&ge;' : '&le;'} ${targetVal}°C</b>.`);
+    elements.findPrevBtn.classList.add('d-none');
+    clearChart();
 }
 
-/* ====================================================
-   NEW: Inspect rows for a specific date (calendar picker)
-   - Uses parseDateForDay / Date/Time field
-   - Displays table of matching rows (all columns)
-   ==================================================== */
+function findPreviousDate() {
+    if (!climateData || climateData.length === 0) { showResult("No dataset loaded."); return; }
+    const tempVar = elements.lastDateVar.value;
+    const op = elements.lastDateOp.value;
+    const targetVal = parseFloat(elements.lastDateVal.value);
+
+    if (isNaN(targetVal)) { showResult("Please enter a numeric value for the condition."); clearChart(); return; }
+    if (!climateData[0] || climateData[0][tempVar] === undefined) { showResult(`Error: Dataset does not contain a '${tempVar}' column.`); clearChart(); return; }
+
+    let i = lastDateFoundIndex - 1; // search earlier than last found
+    while (i >= 0) {
+        const row = climateData[i];
+        const temp = parseFloat(row[tempVar]);
+        if (!isNaN(temp)) {
+            const matched = (op === 'ge') ? (temp >= targetVal) : (temp <= targetVal);
+            if (matched) {
+                // move previous live result into history (if present)
+                if (lastResultHtml) {
+                    const histDiv = document.getElementById('historyArea');
+                    const newHistory = document.createElement('div');
+                    newHistory.className = "alert alert-secondary py-2 mb-2";
+                    newHistory.innerHTML = lastResultHtml;
+                    histDiv.insertBefore(newHistory, histDiv.firstChild);
+                }
+
+                lastDateFoundIndex = i;
+                const opSymbol = op === 'ge' ? '&ge;' : '&le;';
+                const resultHtml = `Last date with <b>${tempVar} ${opSymbol} ${targetVal}°C</b> was:<br><b>${row["Date/Time"]}</b> (with a value of ${temp.toFixed(1)}°C)`;
+                showResult(resultHtml);
+                lastResultHtml = resultHtml;
+                elements.findPrevBtn.classList.remove('d-none');
+                clearChart();
+                return;
+            }
+        }
+        i--;
+    }
+
+    // no more matches earlier than current
+    if (lastResultHtml) {
+        const histDiv = document.getElementById('historyArea');
+        const newHistory = document.createElement('div');
+        newHistory.className = "alert alert-secondary py-2 mb-2";
+        newHistory.innerHTML = lastResultHtml;
+        histDiv.insertBefore(newHistory, histDiv.firstChild);
+        lastResultHtml = '';
+    }
+    showResult("No more previous dates found for this condition.");
+    elements.findPrevBtn.classList.add('d-none');
+    clearChart();
+}
 
 function showRowsForDate(ymd) {
     if (!climateData || climateData.length === 0) { alert('No dataset loaded'); return; }
-    // ymd is "YYYY-MM-DD" from input[type=date]
     const matches = [];
     for (const row of climateData) {
         const d = parseDateForDay(row['Date/Time']);
@@ -1068,11 +1059,9 @@ function showRowsForDate(ymd) {
         return;
     }
 
-    // Build table using union of keys from all matching rows (preserve order by first row)
     const keys = [];
     const first = matches[0];
     for (const k of Object.keys(first)) keys.push(k);
-    // include any extra keys from other rows
     for (const row of matches) {
         for (const k of Object.keys(row)) {
             if (!keys.includes(k)) keys.push(k);
@@ -1093,7 +1082,6 @@ function showRowsForDate(ymd) {
     }
     html += '</tbody></table></div>';
 
-    // Also update historyArea to show quick note (keeps find-prev functionality unaffected)
     elements.historyArea.innerHTML = `<div class="small-muted">Showing all rows for ${ymd}.</div>`;
 
     showResult(html);
@@ -1105,8 +1093,6 @@ function escapeHtml(s) {
         return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]);
     });
 }
-
-/* End of script */
 </script>
 </body>
 </html>
