@@ -107,10 +107,6 @@
       "file": "climate_data/NL/Port Aux Basques_daily_data.csv"
     },
     {
-      "label": "Red Bay",
-      "file": "climate_data/NL/Red Bay_daily_data.csv"
-    },
-    {
       "label": "St. Anthony",
       "file": "climate_data/NL/St. Anthony_daily_data.csv"
     },

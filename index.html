@@ -91,6 +91,7 @@
           <label for="locationSelect" class="form-label">Location</label>
           <select id="locationSelect" class="form-select">
             <option value="" selected disabled>Select Location...</option>
+    <!-- Province-wide options are now under each province optgroup -->
             <!-- JS will append optgroups/options below this placeholder -->
           </select>
         </div>
@@ -108,11 +109,7 @@
           </select>
         </div>
 
-        <div class="col-md-4 d-flex align-items-end">
-          <div id="topStatusWrap">
-            <span id="status" class="ms-3"></span>
-          </div>
-        </div>
+    <!-- Removed duplicate status area -->
       </div>
 
       <!-- Per-analysis controls -->
@@ -260,12 +257,18 @@
 
     </div>
 
-    <div id="dataRange" class="mb-3 fw-bold">Data Range: Not loaded</div>
-    <div id="resultArea" class="mb-3"></div>
-    <div id="historyArea" class="mb-3"></div>
-    <div>
-        <canvas id="resultChart"></canvas>
-    </div>
+        <div id="dataRange" class="mb-3 fw-bold">Data Range: Not loaded</div>
+        <div id="resultArea" class="mb-3"></div>
+        <div id="historyArea" class="mb-3"></div>
+        <div id="loadingSpinner" style="display:none;text-align:center;margin:20px 0;">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <div class="mt-2" id="loadingProgressText">Loading data...</div>
+        </div>
+        <div>
+                <canvas id="resultChart"></canvas>
+        </div>
   </div>
 
 <script>
@@ -288,8 +291,9 @@ const elements = {
     locationSelect: document.getElementById('locationSelect'),
     analysisType: document.getElementById('analysisType'),
     analyzeBtn: document.getElementById('analyzeBtn'),
-    status: document.getElementById('status'),
     statusBottom: document.getElementById('statusBottom'),
+    loadingSpinner: document.getElementById('loadingSpinner'),
+    loadingProgressText: document.getElementById('loadingProgressText'),
     resultArea: document.getElementById('resultArea'),
     resultChart: document.getElementById('resultChart'),
     historyArea: document.getElementById('historyArea'),
@@ -338,6 +342,11 @@ fetch('locations.json')
         for (const [province, locations] of Object.entries(data)) {
             const group = document.createElement('optgroup');
             group.label = province;
+            // Add "All locations" option for this province
+            const allOpt = document.createElement('option');
+            allOpt.value = province + '-all';
+            allOpt.textContent = `All locations in ${province}`;
+            group.appendChild(allOpt);
             locations.forEach(loc => {
                 const opt = document.createElement('option');
                 opt.value = loc.file;
@@ -357,8 +366,60 @@ fetch('locations.json')
 // Event listeners
 elements.locationSelect.addEventListener('change', () => {
     const val = elements.locationSelect.value;
-    if (!val) return;
-    fetchData(val);
+    // If province-wide selected, restrict analysis type options and load data
+    if (val && val.endsWith('-all')) {
+        // Only allow 'inspect-date' and 'find-max-min'
+        Array.from(elements.analysisType.options).forEach(opt => {
+            if (opt.value === 'inspect-date' || opt.value === 'find-max-min' || opt.value === '') {
+                opt.disabled = false;
+            } else {
+                opt.disabled = true;
+            }
+        });
+        elements.analysisType.value = '';
+        // Province-wide mode: load all locations for this province and merge data
+        const province = val.replace('-all', '');
+        elements.statusBottom.textContent = 'Loading all locations for ' + province + '...';
+        elements.loadingSpinner.style.display = '';
+        fetch('locations.json').then(res => res.json()).then(locData => {
+            const files = (locData[province] || []).map(loc => loc.file);
+            let allData = [];
+            let loaded = 0;
+            let allHeaders = null;
+            elements.loadingProgressText.textContent = `Loading data... (0/${files.length})`;
+            files.forEach(file => {
+                Papa.parse(file, {
+                    header: true, download: true, skipEmptyLines: true,
+                    complete: function(results) {
+                        allData = allData.concat(results.data);
+                        if (!allHeaders && results.meta && results.meta.fields) {
+                            allHeaders = results.meta.fields;
+                        }
+                        loaded++;
+                        elements.loadingProgressText.textContent = `Loading data... (${loaded}/${files.length})`;
+                        if (loaded === files.length) {
+                            climateData = allData;
+                            // Use first row for variable selector population
+                            populateVariableSelectors(allHeaders, allData[0]);
+                            populatePrecipVarSelect();
+                            elements.statusBottom.textContent = 'Loaded ' + allData.length + ' rows (all locations in ' + province + ')';
+                            elements.loadingSpinner.style.display = 'none';
+                            showDataRange(allData);
+                            elements.resultArea.innerHTML = '';
+                            clearChart();
+                        }
+                    }
+                });
+            });
+        });
+        return;
+    } else if (val) {
+        // Enable all analysis types
+        Array.from(elements.analysisType.options).forEach(opt => {
+            opt.disabled = false;
+        });
+        fetchData(val);
+    }
 });
 
 elements.analysisType.addEventListener('change', function() {
@@ -827,8 +888,103 @@ function analyzeOverallMaxMin() {
     let topN = parseInt(elements.findTopN.value);
     if (!variable) { showResult("No variable selected."); return; }
     let filteredData = climateData;
-    if (year) filteredData = filteredData.filter(row => row['Date/Time'] && row['Date/Time'].startsWith(year));
-    if (month) filteredData = filteredData.filter(row => row['Date/Time'] && row['Date/Time'].substring(5, 7) === month);
+    // Province-wide mode
+    if (elements.locationSelect.value.endsWith('-all')) {
+        // Get province from value (e.g., NB-all => NB)
+        const province = elements.locationSelect.value.replace('-all', '');
+        fetch('locations.json').then(res => res.json()).then(locData => {
+            const files = (locData[province] || []).map(loc => loc.file);
+            let allData = [];
+            let loaded = 0;
+            files.forEach(file => {
+                Papa.parse(file, {
+                    header: true, download: true, skipEmptyLines: true,
+                    complete: function(results) {
+                        allData = allData.concat(results.data);
+                        loaded++;
+                        if (loaded === files.length) {
+                            runProvinceWideMaxMin(allData);
+                        }
+                    }
+                });
+            });
+        });
+        function runProvinceWideMaxMin(allData) {
+            let filteredData = allData;
+            if (year) filteredData = filteredData.filter(row => row['Date/Time'] && row['Date/Time'].startsWith(year));
+            if (month) filteredData = filteredData.filter(row => row['Date/Time'] && row['Date/Time'].substring(5, 7) === month);
+            let values = filteredData.map(row => ({val: parseFloat(row[variable]), row})).filter(v => !isNaN(v.val));
+            if (values.length === 0) { showResult("No data found for the selected period."); return; }
+            let sorted;
+            if (type === 'max') {
+                sorted = values.sort((a, b) => b.val - a.val);
+            } else {
+                sorted = values.sort((a, b) => a.val - b.val);
+            }
+            let topResults = (!isNaN(topN) && topN > 0) ? sorted.slice(0, topN) : sorted;
+            maxMinResults = topResults;
+            maxMinCurrentIndex = 0;
+            elements.findNextBtn.classList.remove('d-none');
+            elements.findNextBtn.disabled = false;
+            let resultText = '';
+            if (!isNaN(topN) && topN > 1) {
+                resultText = `<b>${type === 'max' ? 'Maximum' : 'Minimum'} ${variable} (Top ${topN}, province-wide):</b><br>`;
+                resultText += `<div class='occurrence-list'><ul>`;
+                for (const v of topResults) {
+                    resultText += `<li>${v.row['Date/Time']} (${v.row['Station Name'] || v.row['Station ID'] || ''}): ${v.row[variable]}</li>`;
+                }
+                resultText += `</ul></div>`;
+            } else if (topResults.length > 0) {
+                const v = topResults[0];
+                resultText = `<b>${type === 'max' ? 'Maximum' : 'Minimum'} ${variable} (province-wide):</b><br><b>${v.row['Date/Time']}</b> (${v.row['Station Name'] || v.row['Station ID'] || ''}) (with a value of ${v.val})`;
+            } else {
+                resultText = `<b>No results found.</b>`;
+            }
+            showResult(resultText);
+            clearChart();
+        }
+        return;
+    }
+    // ...existing code...
+    // Province-wide mode
+    if (elements.locationSelect.value.endsWith('-all')) {
+        // Get province from value (e.g., NB-all => NB)
+        const province = elements.locationSelect.value.replace('-all', '');
+        fetch('locations.json').then(res => res.json()).then(locData => {
+            const files = (locData[province] || []).map(loc => loc.file);
+            let allData = [];
+            let loaded = 0;
+            files.forEach(file => {
+                Papa.parse(file, {
+                    header: true, download: true, skipEmptyLines: true,
+                    complete: function(results) {
+                        allData = allData.concat(results.data);
+                        loaded++;
+                        if (loaded === files.length) {
+                            runProvinceWideInspect(allData);
+                        }
+                    }
+                });
+            });
+        });
+        function runProvinceWideInspect(allData) {
+            const filtered = allData.filter(row => row["Date/Time"] && row["Date/Time"].slice(0,10) === ds);
+            if (filtered.length === 0) { showResult("No data for that date (province-wide). "); clearChart(); return; }
+            let html = `<b>Rows for ${ds} (province-wide):</b><br><table class='inspect-table'><thead><tr>`;
+            Object.keys(filtered[0]).forEach(k => { html += `<th>${escapeHtml(k)}</th>`; });
+            html += `</tr></thead><tbody>`;
+            for (const row of filtered) {
+                html += `<tr>`;
+                Object.keys(row).forEach(k => { html += `<td>${escapeHtml(row[k])}</td>`; });
+                html += `</tr>`;
+            }
+            html += `</tbody></table>`;
+            showResult(html);
+            clearChart();
+        }
+        return;
+    }
+    // ...existing code...
     let values = filteredData.map(row => ({val: parseFloat(row[variable]), row})).filter(v => !isNaN(v.val));
     if (values.length === 0) { showResult("No data found for the selected period."); return; }
 
