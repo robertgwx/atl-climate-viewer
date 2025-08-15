@@ -783,7 +783,7 @@ function analyzeConsecutiveRuns() {
     html += '<br><div style="margin-top:8px"><strong>Runs (filtered & sorted):</strong></div>';
     html += '<div class="occurrence-list" style="padding:8px; margin-top:6px;"><ul>';
     for (const r of runs) {
-        html += `<li><div><strong>${r.length} day(s)</strong> — ${r.start} → ${r.end}<div class="meta">Dates: ${r.dates.join(', ')}</div></div></li>`;
+        html += `<li><div><strong>${r.length} days</strong> — ${r.start} → ${r.end}<div class="meta">Dates: ${r.dates.join(', ')}</div></div></li>`;
     }
     html += '</ul></div>';
 
