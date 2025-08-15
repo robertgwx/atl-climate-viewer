@@ -11,76 +11,233 @@
     <!-- Chart.js (cdnjs) -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 
-    <style>
-        :root{
-          --bg:#f8fafc;
-          --card:#ffffff;
-          --text:#0f172a;
-          --muted:#6b7280;
-          --accent:#0369a1;
-          --list-bg:#f1f5f9;
-          --list-border:#e2e8f0;
-          --item-bg:#ffffff;
-        }
-        @media (prefers-color-scheme: dark) {
-          :root{
-            --bg:#0b1220; --card:#0f1724; --text:#e6eef8; --muted:#9ca3af; --accent:#38bdf8;
-            --list-bg:#071122; --list-border:#1f2937; --item-bg:#0b1220;
-          }
-        }
-        body { background: var(--bg); color: var(--text); font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial; margin:0; padding:28px;}
-        .container{max-width:980px;margin:0 auto;}
-        h1{margin:0 0 10px;font-size:22px;}
-        .card{background:var(--card); border-radius:10px; padding:16px; box-shadow:0 6px 18px rgba(2,6,23,0.06); margin-bottom:16px;}
-        label{display:block;font-size:13px;color:var(--muted); margin-bottom:6px;}
-        .form-control, .form-select { width:100%; padding:8px 10px; border-radius:6px; font-size:13px; background:transparent; color:var(--text); border:1px solid rgba(2,6,23,0.06); }
-        .muted { color: var(--muted); }
-
-        /* Main selectors slightly larger */
-        .main-controls .form-select, .main-controls .form-control, .main-controls .form-label {
-            font-size: 15.5px;
-        }
-        .main-controls .form-label { font-weight:600; color:var(--text); }
-
-        /* Improved, higher-contrast run list */
-        .occurrence-list {
-            background: linear-gradient(180deg, var(--list-bg), var(--list-bg));
-            border: 1px solid var(--list-border);
-            color: var(--text);
-            padding:8px;
-            border-radius:8px;
-            max-height:260px;
-            overflow:auto;
-        }
-        .occurrence-list ul { margin:0; padding-left: 18px; }
-        .occurrence-list li {
-            background: var(--item-bg);
-            padding:8px;
-            border-radius:6px;
-            margin-bottom:8px;
-            box-shadow: 0 1px 0 rgba(0,0,0,0.03) inset;
-            display:flex;
-            justify-content:space-between;
-            gap:12px;
-            align-items:baseline;
-        }
-        .occurrence-list li .meta { color:var(--muted); font-size:12px; margin-top:6px; display:block; }
-        .small-muted { font-size:12px; color:var(--muted); margin-top:6px; }
-
-        /* date inspector table */
-        .inspect-table { width:100%; border-collapse:collapse; margin-top:8px; }
-        .inspect-table th, .inspect-table td { border:1px solid var(--list-border); padding:6px 8px; text-align:left; font-size:13px; }
-        .inspect-table th { background: rgba(0,0,0,0.03); font-weight:600; }
-
-        /* Make status legible */
-        #status { color: var(--text); font-weight:700; margin-left:0.5rem; }
-
-        .result-area pre { background: rgba(0,0,0,0.03); padding:12px; border-radius:8px; overflow:auto; }
-
-        @media (max-width:700px){ .row .col-md-2, .row .col-md-3, .row .col-md-4 { flex: 0 0 100%; max-width: 100%; } }
+        <style>
+            :root {
+                --bg: #f4f8fb;
+                --card: #ffffff;
+                --text: #1a2a3a;
+                --muted: #6b7a90;
+                --accent: #1976d2;
+                --accent-light: #e3f2fd;
+                --accent-dark: #1565c0;
+                --list-bg: #eaf2fb;
+                --list-border: #dbeafe;
+                --item-bg: #ffffff;
+                --inspect-row-alt: #f7fbff;
+                --shadow: 0 6px 24px rgba(25, 118, 210, 0.08);
+            }
+            [data-theme="dark"] {
+                --bg: #101624;
+                --card: #18223a;
+                --text: #e3eaf7;
+                --muted: #9ca3af;
+                --accent: #90caf9;
+                --accent-light: #1e293b;
+                --accent-dark: #1976d2;
+                --list-bg: #16213a;
+                --list-border: #23304e;
+                --item-bg: #101624;
+                --inspect-row-alt: #122033;
+                --shadow: 0 6px 24px rgba(25, 118, 210, 0.18);
+            }
+            body {
+                background: var(--bg);
+                color: var(--text);
+                font-family: 'Inter', system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+                margin: 0;
+                padding: 28px;
+                transition: background 0.3s, color 0.3s;
+            }
+            .container {
+                max-width: 980px;
+                margin: 0 auto;
+            }
+            h1 {
+                margin: 0 0 18px;
+                font-size: 2rem;
+                font-weight: 700;
+                letter-spacing: 0.02em;
+            }
+            .card {
+                background: var(--card);
+                border-radius: 16px;
+                padding: 24px;
+                box-shadow: var(--shadow);
+                margin-bottom: 24px;
+                transition: background 0.3s, box-shadow 0.3s;
+            }
+            label {
+                display: block;
+                font-size: 14px;
+                color: var(--muted);
+                margin-bottom: 8px;
+                font-weight: 500;
+            }
+            .form-control, .form-select {
+                width: 100%;
+                padding: 10px 12px;
+                border-radius: 8px;
+                font-size: 15px;
+                background: var(--accent-light);
+                color: var(--text);
+                border: 1px solid var(--list-border);
+                transition: background 0.3s, color 0.3s;
+            }
+            .form-control:focus, .form-select:focus {
+                border-color: var(--accent);
+                box-shadow: 0 0 0 2px var(--accent-light);
+                outline: none;
+            }
+            .main-controls .form-label {
+                font-size: 16px;
+                font-weight: 600;
+                color: var(--accent-dark);
+            }
+            .main-controls .form-select, .main-controls .form-control {
+                font-size: 16px;
+            }
+            .btn-primary {
+                background: linear-gradient(90deg, var(--accent), var(--accent-dark));
+                color: #fff;
+                border: none;
+                border-radius: 8px;
+                font-weight: 600;
+                padding: 10px 24px;
+                font-size: 16px;
+                box-shadow: 0 2px 8px rgba(25, 118, 210, 0.08);
+                transition: background 0.2s, box-shadow 0.2s;
+            }
+            .btn-primary:hover, .btn-primary:focus {
+                background: linear-gradient(90deg, var(--accent-dark), var(--accent));
+                box-shadow: 0 4px 16px rgba(25, 118, 210, 0.16);
+            }
+            .btn-secondary {
+                background: var(--accent-light);
+                color: var(--accent-dark);
+                border: 1px solid var(--accent);
+                border-radius: 8px;
+                font-weight: 500;
+                padding: 10px 18px;
+                font-size: 15px;
+                transition: background 0.2s, color 0.2s;
+            }
+            .btn-secondary:hover, .btn-secondary:focus {
+                background: var(--accent);
+                color: #fff;
+            }
+            .occurrence-list {
+                background: var(--list-bg);
+                border: 1px solid var(--list-border);
+                color: var(--text);
+                padding: 10px;
+                border-radius: 10px;
+                max-height: 260px;
+                overflow: auto;
+                box-shadow: 0 2px 8px rgba(25, 118, 210, 0.04);
+            }
+            .occurrence-list ul {
+                margin: 0;
+                padding-left: 18px;
+            }
+            .occurrence-list li {
+                background: var(--item-bg);
+                padding: 10px;
+                border-radius: 8px;
+                margin-bottom: 10px;
+                box-shadow: 0 1px 0 rgba(25, 118, 210, 0.03) inset;
+                display: flex;
+                justify-content: space-between;
+                gap: 12px;
+                align-items: baseline;
+                transition: background 0.2s;
+            }
+            .occurrence-list li:hover {
+                background: var(--accent-light);
+            }
+            .occurrence-list li .meta {
+                color: var(--muted);
+                font-size: 13px;
+                margin-top: 6px;
+                display: block;
+            }
+            .small-muted {
+                font-size: 13px;
+                color: var(--muted);
+                margin-top: 6px;
+            }
+            .inspect-table {
+                width: 100%;
+                border-collapse: collapse;
+                margin-top: 10px;
+                border-radius: 8px;
+                overflow: hidden;
+                box-shadow: 0 2px 8px rgba(25, 118, 210, 0.04);
+            }
+            .inspect-table th, .inspect-table td {
+                border: 1px solid var(--list-border);
+                padding: 8px 10px;
+                text-align: left;
+                font-size: 14px;
+            }
+            .inspect-table th {
+                background: var(--accent-light);
+                font-weight: 600;
+                color: var(--accent-dark);
+            }
+            .inspect-table td {
+                color: var(--text);
+                background: transparent;
+            }
+            .inspect-table tr:nth-child(even) td {
+                background: var(--inspect-row-alt);
+            }
+            #status {
+                color: var(--accent-dark);
+                font-weight: 700;
+                margin-left: 0.5rem;
+            }
+            .result-area pre {
+                background: var(--accent-light);
+                padding: 14px;
+                border-radius: 10px;
+                overflow: auto;
+            }
+            /* loadingSpinner removed - progress is shown in #dataRange */
+            /* Dark/light mode toggle */
+            .theme-toggle {
+                position: absolute;
+                top: 24px;
+                right: 32px;
+                z-index: 10;
+                background: var(--card);
+                border-radius: 50px;
+                box-shadow: 0 2px 8px rgba(25, 118, 210, 0.08);
+                border: 1px solid var(--list-border);
+                padding: 6px 18px;
+                font-size: 16px;
+                color: var(--accent-dark);
+                cursor: pointer;
+                transition: background 0.3s, color 0.3s;
+            }
+            .theme-toggle:hover {
+                background: var(--accent-light);
+                color: var(--accent);
+            }
+            @media (max-width:700px) {
+                .row .col-md-2, .row .col-md-3, .row .col-md-4 {
+                    flex: 0 0 100%;
+                    max-width: 100%;
+                }
+                .theme-toggle {
+                    right: 12px;
+                    top: 12px;
+                }
+            }
+        </style>
     </style>
 </head>
 <body>
+    <button class="theme-toggle" id="themeToggle" type="button">🌙 Dark Mode</button>
   <div class="container">
     <h1>Atlantic Canada Climate Data Explorer</h1>
 
@@ -248,30 +405,36 @@
       </div>
 
       <!-- MOVE analyze button to very bottom of selectors as requested -->
-      <div class="row g-2 mt-3">
-        <div class="col-12 d-flex">
-            <button id="analyzeBtn" class="btn btn-primary me-3">Analyze</button>
-            <div id="bottomStatusWrap"><span id="statusBottom" style="font-weight:600;color:var(--text)"></span></div>
-        </div>
-      </div>
+            <div class="row g-2 mt-3">
+                <div class="col-12 d-flex align-items-center">
+                        <button id="analyzeBtn" class="btn btn-primary">Analyze</button>
+                        <div id="dataRange" class="ms-3 fw-bold">Data Range: Not loaded</div>
+                        <div id="bottomStatusWrap" class="ms-auto"><span id="statusBottom" style="font-weight:600;color:var(--text)"></span></div>
+                </div>
+            </div>
 
     </div>
 
-        <div id="dataRange" class="mb-3 fw-bold">Data Range: Not loaded</div>
-        <div id="resultArea" class="mb-3"></div>
+    <div id="resultArea" class="mb-3"></div>
         <div id="historyArea" class="mb-3"></div>
-        <div id="loadingSpinner" style="display:none;text-align:center;margin:20px 0;">
-                    <div class="spinner-border text-primary" role="status">
-                        <span class="visually-hidden">Loading...</span>
-                    </div>
-                    <div class="mt-2" id="loadingProgressText">Loading data...</div>
-        </div>
         <div>
                 <canvas id="resultChart"></canvas>
         </div>
   </div>
 
 <script>
+// --- Dark/Light Mode Toggle ---
+const themeToggle = document.getElementById('themeToggle');
+function setTheme(mode) {
+    document.documentElement.setAttribute('data-theme', mode);
+    themeToggle.textContent = mode === 'dark' ? '☀️ Light Mode' : '🌙 Dark Mode';
+}
+themeToggle.addEventListener('click', () => {
+    const current = document.documentElement.getAttribute('data-theme');
+    setTheme(current === 'dark' ? 'light' : 'dark');
+});
+// Set initial theme based on system preference
+setTheme(window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
 /* ===========================================================
    Updated: analyze button moved to bottom and fixed listeners
    - No top "Year" input; per-analysis year inputs retained
@@ -292,11 +455,11 @@ const elements = {
     analysisType: document.getElementById('analysisType'),
     analyzeBtn: document.getElementById('analyzeBtn'),
     statusBottom: document.getElementById('statusBottom'),
-    loadingSpinner: document.getElementById('loadingSpinner'),
-    loadingProgressText: document.getElementById('loadingProgressText'),
+    // loadingSpinner & loadingProgressText removed; progress shown in dataRange
     resultArea: document.getElementById('resultArea'),
     resultChart: document.getElementById('resultChart'),
     historyArea: document.getElementById('historyArea'),
+    // loadingSpinner removed; progress displayed in dataRange
     lastDateDiv: document.getElementById('lastDateDiv'),
     findMaxMinDiv: document.getElementById('findMaxMinDiv'),
     countOccurrencesDiv: document.getElementById('countOccurrencesDiv'),
@@ -334,6 +497,25 @@ const elements = {
     dateInspectBtn: document.getElementById('dateInspectBtn')
 };
 
+// Ensure dataRange element exists and keep a reference
+elements.dataRange = document.getElementById('dataRange');
+if (!elements.dataRange) {
+    // create and insert after the analyze button if possible
+    const analyzeBtn = elements.analyzeBtn || document.getElementById('analyzeBtn');
+    const wrap = analyzeBtn && analyzeBtn.parentElement;
+    const dr = document.createElement('div');
+    dr.id = 'dataRange';
+    dr.className = 'ms-3 fw-bold';
+    dr.textContent = 'Data Range: Not loaded';
+    if (wrap && wrap.insertBefore) wrap.insertBefore(dr, analyzeBtn.nextSibling);
+    elements.dataRange = document.getElementById('dataRange');
+}
+// Ensure visible minimum width and color so it's not collapsed or invisible
+if (elements.dataRange) {
+    elements.dataRange.style.minWidth = '220px';
+    elements.dataRange.style.color = 'var(--text)';
+}
+
 // --- Initialization: populate location select but do not auto-load a file ---
 fetch('locations.json')
     .then(res => res.json())
@@ -351,15 +533,16 @@ fetch('locations.json')
                 const opt = document.createElement('option');
                 opt.value = loc.file;
                 opt.textContent = loc.label;
+                opt.setAttribute('data-province', province);
                 group.appendChild(opt);
             });
             elements.locationSelect.appendChild(group);
         }
-        elements.status.textContent = '';
+        if (elements.status) elements.status.textContent = '';
         elements.statusBottom.textContent = '';
     })
     .catch(() => {
-        elements.status.textContent = 'Error: locations.json missing!';
+        if (elements.status) elements.status.textContent = 'Error: locations.json missing!';
         elements.statusBottom.textContent = 'Error: locations.json missing!';
     });
 
@@ -379,14 +562,37 @@ elements.locationSelect.addEventListener('change', () => {
         elements.analysisType.value = '';
         // Province-wide mode: load all locations for this province and merge data
         const province = val.replace('-all', '');
-        elements.statusBottom.textContent = 'Loading all locations for ' + province + '...';
-        elements.loadingSpinner.style.display = '';
+    // start progress UI in the dataRange area
+    elements.statusBottom.textContent = '';
         fetch('locations.json').then(res => res.json()).then(locData => {
             const files = (locData[province] || []).map(loc => loc.file);
             let allData = [];
             let loaded = 0;
             let allHeaders = null;
-            elements.loadingProgressText.textContent = `Loading data... (0/${files.length})`;
+            startLoading(files.length);
+
+            function finalizeIfDone() {
+                        if (loaded === files.length) {
+                            climateData = allData;
+                            // Use first row for variable selector population
+                            populateVariableSelectors(allHeaders, allData[0]);
+                            populatePrecipVarSelect();
+                            updateLoading(loaded, files.length);
+                            finishLoading(allData);
+                            elements.resultArea.innerHTML = '';
+                            clearChart();
+                        } else {
+                            updateLoading(loaded, files.length);
+                        }
+            }
+
+            if (files.length === 0) {
+                // nothing to load
+                loaded = 0;
+                finalizeIfDone();
+                return;
+            }
+
             files.forEach(file => {
                 Papa.parse(file, {
                     header: true, download: true, skipEmptyLines: true,
@@ -396,18 +602,12 @@ elements.locationSelect.addEventListener('change', () => {
                             allHeaders = results.meta.fields;
                         }
                         loaded++;
-                        elements.loadingProgressText.textContent = `Loading data... (${loaded}/${files.length})`;
-                        if (loaded === files.length) {
-                            climateData = allData;
-                            // Use first row for variable selector population
-                            populateVariableSelectors(allHeaders, allData[0]);
-                            populatePrecipVarSelect();
-                            elements.statusBottom.textContent = 'Loaded ' + allData.length + ' rows (all locations in ' + province + ')';
-                            elements.loadingSpinner.style.display = 'none';
-                            showDataRange(allData);
-                            elements.resultArea.innerHTML = '';
-                            clearChart();
-                        }
+                        finalizeIfDone();
+                    },
+                    error: function(err) {
+                        // count failed file and continue
+                        loaded++;
+                        finalizeIfDone();
                     }
                 });
             });
@@ -418,7 +618,16 @@ elements.locationSelect.addEventListener('change', () => {
         Array.from(elements.analysisType.options).forEach(opt => {
             opt.disabled = false;
         });
-        fetchData(val);
+        // Only fetch if not a province-wide option
+        if (!val.endsWith('-all')) {
+            elements.statusBottom.textContent = '';
+            // show dataset-level loading with a single file
+            startLoading(1);
+            fetchData(val, () => {
+                updateLoading(1,1);
+                finishLoading(climateData);
+            });
+        }
     }
 });
 
@@ -510,29 +719,26 @@ elements.dateInspectBtn.addEventListener('click', () => {
 });
 
 // --- DATA HANDLING ---
-function fetchData(filename) {
-    elements.status.textContent = "Loading...";
-    elements.statusBottom.textContent = "Loading...";
+function fetchData(filename, cb) {
+    // statusBottom is reserved for small messages; keep it blank and use dataRange for loading UI
+    elements.statusBottom.textContent = "";
     Papa.parse(filename, {
-        header: true, download: true, skipEmptyLines: true,
-        complete: function(results) {
-            climateData = results.data || [];
-            populateVariableSelectors(results.meta && results.meta.fields ? results.meta.fields : [], results.data && results.data[0]);
-            populatePrecipVarSelect();
-            elements.status.textContent = "Loaded " + climateData.length + " rows";
-            elements.statusBottom.textContent = "Loaded " + climateData.length + " rows";
-            showDataRange(climateData);
-            elements.resultArea.innerHTML = '';
-            clearChart();
-        },
-        error: function(err) {
-            elements.status.textContent = "Error loading file: " + err;
-            elements.statusBottom.textContent = "Error loading file";
-            climateData = [];
-            showDataRange([]);
-            clearChart();
-        }
-    });
+            header: true, download: true, skipEmptyLines: true,
+            complete: function(results) {
+                climateData = results.data || [];
+                populateVariableSelectors(results.meta && results.meta.fields ? results.meta.fields : [], results.data && results.data[0]);
+                populatePrecipVarSelect();
+                elements.resultArea.innerHTML = '';
+                clearChart();
+                if (typeof cb === 'function') cb();
+            },
+            error: function(err) {
+                elements.statusBottom.textContent = "";
+                climateData = [];
+                clearChart();
+                if (typeof cb === 'function') cb();
+            }
+        });
 }
 
 function populateVariableSelectors(headers, firstRow) {
@@ -597,12 +803,69 @@ function showResult(html) {
 function clearChart() { if (chart) { chart.destroy(); chart = null; } }
 function showDataRange(dataArray) {
     const rangeDiv = document.getElementById('dataRange');
-    if (!dataArray || dataArray.length === 0) { rangeDiv.textContent = 'Data Range: No data'; return; }
-    const dates = dataArray.map(row => parseDateForDay(row["Date/Time"])).filter(d => d && !isNaN(d));
-    if (dates.length === 0) { rangeDiv.textContent = 'Data Range: No valid dates'; return; }
-    const minDate = new Date(Math.min(...dates));
-    const maxDate = new Date(Math.max(...dates));
-    rangeDiv.textContent = `Data Range: ${minDate.toISOString().slice(0,10)} to ${maxDate.toISOString().slice(0,10)}`;
+    const fallback = (elements && elements.statusBottom) ? elements.statusBottom : null;
+    // default behavior: display plain data range. To show the green check, caller may
+    // call showDataRange(dataArray, true) after loading completes.
+    // Backwards-compatible signature: showDataRange(dataArray, done=false)
+    const done = arguments.length > 1 ? !!arguments[1] : false;
+    if (!dataArray || dataArray.length === 0) {
+        const txt = 'Data Range: No data';
+        if (rangeDiv) rangeDiv.textContent = txt; else if (fallback) fallback.textContent = txt;
+        return;
+    }
+    // Build an array of epoch times to safely compute min/max without spreading large arrays
+    const times = [];
+    for (const row of dataArray) {
+        const d = parseDateForDay(row && row["Date/Time"]);
+        if (d && !isNaN(d.getTime())) times.push(d.getTime());
+    }
+    if (times.length === 0) {
+        const txt = 'Data Range: No valid dates';
+        if (rangeDiv) rangeDiv.textContent = txt; else if (fallback) fallback.textContent = txt;
+        return;
+    }
+    let minTime = times[0];
+    let maxTime = times[0];
+    for (let i = 1; i < times.length; i++) {
+        const t = times[i];
+        if (t < minTime) minTime = t;
+        if (t > maxTime) maxTime = t;
+    }
+    const minDate = new Date(minTime);
+    const maxDate = new Date(maxTime);
+    const label = `Data Range: ${minDate.toISOString().slice(0,10)} to ${maxDate.toISOString().slice(0,10)}`;
+    if (done) {
+        const html = `<span style="color:green;font-weight:700;margin-right:6px">&#10004;</span> ${label}`;
+        if (rangeDiv) rangeDiv.innerHTML = html; else if (fallback) fallback.textContent = `OK — ${label}`;
+    } else {
+        if (rangeDiv) rangeDiv.textContent = label; else if (fallback) fallback.textContent = label;
+    }
+}
+
+// Loading UI helpers: show progress in the `#dataRange` element
+function startLoading(total) {
+    const rangeDiv = document.getElementById('dataRange');
+    const fallback = (elements && elements.statusBottom) ? elements.statusBottom : null;
+    if (rangeDiv) {
+        rangeDiv.dataset.loading = 'true';
+        rangeDiv.innerHTML = `<span class="spinner-border spinner-border-sm text-primary" role="status" aria-hidden="true"></span> Loading... (0/${total})`;
+    } else if (fallback) {
+        fallback.textContent = `Loading... (0/${total})`;
+    }
+}
+function updateLoading(loaded, total) {
+    const rangeDiv = document.getElementById('dataRange');
+    const fallback = (elements && elements.statusBottom) ? elements.statusBottom : null;
+    if (rangeDiv) {
+        rangeDiv.innerHTML = `<span class="spinner-border spinner-border-sm text-primary" role="status" aria-hidden="true"></span> Loading... (${loaded}/${total})`;
+    } else if (fallback) {
+        fallback.textContent = `Loading... (${loaded}/${total})`;
+    }
+}
+function finishLoading(dataArray) {
+    const rangeDiv = document.getElementById('dataRange');
+    if (rangeDiv && rangeDiv.dataset) delete rangeDiv.dataset.loading;
+    showDataRange(dataArray, true);
 }
 
 /* ------------------------
