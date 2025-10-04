@@ -5,7 +5,54 @@
     <title>Atlantic Canada Climate Data Explorer</title>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <!-- Bootstrap (cdnjs) -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.2/css/bootstrap.min.css">
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.2/css/bootstrap.min.css">
+        <style>
+                    .inspect-table {
+                        width: 100%;
+                        border-collapse: collapse;
+                        margin-top: 12px;
+                        font-size: 0.97em;
+                    }
+                            .inspect-table th, .inspect-table td {
+                                border: 1px solid #bbb;
+                                padding: 6px 10px;
+                                text-align: left;
+                                color: #222;
+                                word-break: break-word;
+                            }
+                    .inspect-table th {
+                        background: #f2f2f2;
+                        font-weight: bold;
+                        position: sticky;
+                        top: 0;
+                        z-index: 1;
+                    }
+                    .inspect-table tbody tr:nth-child(even) {
+                        background: #fafbfc;
+                    }
+                    .inspect-table tbody tr:nth-child(odd) {
+                        background: #fff;
+                    }
+                    .inspect-table td {
+                        vertical-align: top;
+                        word-break: break-word;
+                    }
+                    @media (prefers-color-scheme: dark) {
+                        .inspect-table th, .inspect-table td {
+                            color: #f3f3f3;
+                            border-color: #444;
+                        }
+                        .inspect-table th {
+                            background: #23272e;
+                        }
+                        .inspect-table tbody tr:nth-child(even) {
+                            background: #23272e;
+                        }
+                        .inspect-table tbody tr:nth-child(odd) {
+                            background: #181a1b;
+                        }
+                    }
+        </style>
     <!-- PapaParse (cdnjs) -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
     <!-- Chart.js (cdnjs) -->
@@ -1151,6 +1198,8 @@ function analyzeOverallMaxMin() {
     let topN = parseInt(elements.findTopN.value);
     if (!variable) { showResult("No variable selected."); return; }
     let filteredData = climateData;
+    if (year) filteredData = filteredData.filter(row => row['Date/Time'] && row['Date/Time'].startsWith(year));
+    if (month) filteredData = filteredData.filter(row => row['Date/Time'] && row['Date/Time'].substring(5, 7) === month);
     // Province-wide mode
     if (elements.locationSelect.value.endsWith('-all')) {
         // Get province from value (e.g., NB-all => NB)
@@ -1166,88 +1215,47 @@ function analyzeOverallMaxMin() {
                         allData = allData.concat(results.data);
                         loaded++;
                         if (loaded === files.length) {
-                            runProvinceWideMaxMin(allData);
+                            // Apply year/month filter after all data loaded
+                            let provinceFiltered = allData;
+                            if (year) provinceFiltered = provinceFiltered.filter(row => row['Date/Time'] && row['Date/Time'].startsWith(year));
+                            if (month) provinceFiltered = provinceFiltered.filter(row => row['Date/Time'] && row['Date/Time'].substring(5, 7) === month);
+                            let values = provinceFiltered.map(row => ({val: parseFloat(row[variable]), row})).filter(v => !isNaN(v.val));
+                            if (values.length === 0) { showResult("No data found for the selected period."); return; }
+                            let sorted;
+                            if (type === 'max') {
+                                sorted = values.sort((a, b) => b.val - a.val);
+                            } else {
+                                sorted = values.sort((a, b) => a.val - b.val);
+                            }
+                            let topResults = (!isNaN(topN) && topN > 0) ? sorted.slice(0, topN) : sorted;
+                            maxMinResults = topResults;
+                            maxMinCurrentIndex = 0;
+                            elements.findNextBtn.classList.remove('d-none');
+                            elements.findNextBtn.disabled = false;
+                            let resultText = '';
+                            if (!isNaN(topN) && topN > 1) {
+                                resultText = `<b>${type === 'max' ? 'Maximum' : 'Minimum'} ${variable} (Top ${topN}, province-wide):</b><br>`;
+                                resultText += `<div class='occurrence-list'><ul>`;
+                                for (const v of topResults) {
+                                    resultText += `<li>${v.row['Date/Time']} (${v.row['Station Name'] || v.row['Station ID'] || ''}): ${v.row[variable]}</li>`;
+                                }
+                                resultText += `</ul></div>`;
+                            } else if (topResults.length > 0) {
+                                const v = topResults[0];
+                                resultText = `<b>${type === 'max' ? 'Maximum' : 'Minimum'} ${variable} (province-wide):</b><br><b>${v.row['Date/Time']}</b> (${v.row['Station Name'] || v.row['Station ID'] || ''}) (with a value of ${v.val})`;
+                            } else {
+                                resultText = `<b>No results found.</b>`;
+                            }
+                            showResult(resultText);
+                            clearChart();
                         }
                     }
                 });
             });
         });
-        function runProvinceWideMaxMin(allData) {
-            let filteredData = allData;
-            if (year) filteredData = filteredData.filter(row => row['Date/Time'] && row['Date/Time'].startsWith(year));
-            if (month) filteredData = filteredData.filter(row => row['Date/Time'] && row['Date/Time'].substring(5, 7) === month);
-            let values = filteredData.map(row => ({val: parseFloat(row[variable]), row})).filter(v => !isNaN(v.val));
-            if (values.length === 0) { showResult("No data found for the selected period."); return; }
-            let sorted;
-            if (type === 'max') {
-                sorted = values.sort((a, b) => b.val - a.val);
-            } else {
-                sorted = values.sort((a, b) => a.val - b.val);
-            }
-            let topResults = (!isNaN(topN) && topN > 0) ? sorted.slice(0, topN) : sorted;
-            maxMinResults = topResults;
-            maxMinCurrentIndex = 0;
-            elements.findNextBtn.classList.remove('d-none');
-            elements.findNextBtn.disabled = false;
-            let resultText = '';
-            if (!isNaN(topN) && topN > 1) {
-                resultText = `<b>${type === 'max' ? 'Maximum' : 'Minimum'} ${variable} (Top ${topN}, province-wide):</b><br>`;
-                resultText += `<div class='occurrence-list'><ul>`;
-                for (const v of topResults) {
-                    resultText += `<li>${v.row['Date/Time']} (${v.row['Station Name'] || v.row['Station ID'] || ''}): ${v.row[variable]}</li>`;
-                }
-                resultText += `</ul></div>`;
-            } else if (topResults.length > 0) {
-                const v = topResults[0];
-                resultText = `<b>${type === 'max' ? 'Maximum' : 'Minimum'} ${variable} (province-wide):</b><br><b>${v.row['Date/Time']}</b> (${v.row['Station Name'] || v.row['Station ID'] || ''}) (with a value of ${v.val})`;
-            } else {
-                resultText = `<b>No results found.</b>`;
-            }
-            showResult(resultText);
-            clearChart();
-        }
         return;
     }
-    // ...existing code...
-    // Province-wide mode
-    if (elements.locationSelect.value.endsWith('-all')) {
-        // Get province from value (e.g., NB-all => NB)
-        const province = elements.locationSelect.value.replace('-all', '');
-        fetch('locations.json').then(res => res.json()).then(locData => {
-            const files = (locData[province] || []).map(loc => loc.file);
-            let allData = [];
-            let loaded = 0;
-            files.forEach(file => {
-                Papa.parse(file, {
-                    header: true, download: true, skipEmptyLines: true,
-                    complete: function(results) {
-                        allData = allData.concat(results.data);
-                        loaded++;
-                        if (loaded === files.length) {
-                            runProvinceWideInspect(allData);
-                        }
-                    }
-                });
-            });
-        });
-        function runProvinceWideInspect(allData) {
-            const filtered = allData.filter(row => row["Date/Time"] && row["Date/Time"].slice(0,10) === ds);
-            if (filtered.length === 0) { showResult("No data for that date (province-wide). "); clearChart(); return; }
-            let html = `<b>Rows for ${ds} (province-wide):</b><br><table class='inspect-table'><thead><tr>`;
-            Object.keys(filtered[0]).forEach(k => { html += `<th>${escapeHtml(k)}</th>`; });
-            html += `</tr></thead><tbody>`;
-            for (const row of filtered) {
-                html += `<tr>`;
-                Object.keys(row).forEach(k => { html += `<td>${escapeHtml(row[k])}</td>`; });
-                html += `</tr>`;
-            }
-            html += `</tbody></table>`;
-            showResult(html);
-            clearChart();
-        }
-        return;
-    }
-    // ...existing code...
+    // Single-station mode (already filtered above)
     let values = filteredData.map(row => ({val: parseFloat(row[variable]), row})).filter(v => !isNaN(v.val));
     if (values.length === 0) { showResult("No data found for the selected period."); return; }
 
@@ -1478,13 +1486,19 @@ function showRowsForDate(ymd) {
         return;
     }
 
-    const keys = [];
+    let keys = [];
     const first = matches[0];
     for (const k of Object.keys(first)) keys.push(k);
     for (const row of matches) {
         for (const k of Object.keys(row)) {
             if (!keys.includes(k)) keys.push(k);
         }
+    }
+
+    // Move Station Name/ID to the front if present
+    let stationKey = keys.find(k => k.toLowerCase().includes('station name')) || keys.find(k => k.toLowerCase().includes('station id'));
+    if (stationKey) {
+        keys = [stationKey, ...keys.filter(k => k !== stationKey)];
     }
 
     let html = `<div><b>Rows for ${ymd} — ${matches.length} row(s):</b></div>`;
@@ -1494,8 +1508,13 @@ function showRowsForDate(ymd) {
     for (const row of matches) {
         html += '<tr>';
         for (const k of keys) {
-            const v = (k in row && row[k] != null) ? String(row[k]) : '';
-            html += `<td>${escapeHtml(v)}</td>`;
+            let v = (k in row && row[k] != null) ? String(row[k]) : '';
+            // For station column, prevent mid-word breaks but allow wrapping between words
+            if (k === stationKey) {
+                html += `<td style="white-space:normal; word-break:keep-all;">${escapeHtml(v)}</td>`;
+            } else {
+                html += `<td>${escapeHtml(v)}</td>`;
+            }
         }
         html += '</tr>';
     }
