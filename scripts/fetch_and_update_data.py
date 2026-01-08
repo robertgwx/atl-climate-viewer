@@ -156,7 +156,6 @@ def update_csv_file(file_path):
 
         if most_recent_date >= one_day_ago:
             print(f"  Data is already up to date for {station_name} (data goes up to {most_recent_date.strftime('%Y-%m-%d')}). No update needed.")
-            return
 
         # Define the years and months we need to fetch
         months_to_fetch = []
