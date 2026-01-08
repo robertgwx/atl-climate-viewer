@@ -29,7 +29,7 @@ def fetch_daily_data(station_id, station_name, year, current_month):
     current_date = datetime.now()
 
     # Fetch data for all months in the year
-    for month in range(1, 12):
+    for month in range(1, 13):
         # Skip months after the current month if it's the current year
         if year == current_date.year and month > current_date.month:
             break
