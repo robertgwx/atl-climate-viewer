@@ -161,6 +161,21 @@ def update_csv_file(file_path):
         # Define the years and months we need to fetch
         months_to_fetch = []
 
+        # TEMP WORKAROUND TO FETCH DECEMBER ONCE:
+        # If the most recent date is in January and there is no December data for the previous year,
+        # force adding the previous year's December to months_to_fetch. This is a temporary fix
+        # to recover December data that was previously skipped. After running once, delete this block.
+        try:
+            existing_dates = pd.to_datetime(existing_df['Date/Time'])
+            has_prev_dec = ((existing_dates.dt.year == (most_recent_year - 1)) & (existing_dates.dt.month == 12)).any()
+            if most_recent_month == 1 and not has_prev_dec:
+                # Add previous year's December as first item to fetch
+                months_to_fetch.append((most_recent_year - 1, 12))
+                print(f"  TEMP WORKAROUND: Added {(most_recent_year - 1, 12)} to months_to_fetch to retrieve missing December data. Remove this block after running once.")
+        except Exception as e:
+            # If anything goes wrong here, do not block normal behavior; just warn and continue.
+            print(f"  Warning while checking for previous December data: {e}")
+
         # Figure out what months we need to fetch
         # If we're still in the same month as most_recent_date, just fetch this month
         if most_recent_year == current_year and most_recent_month == current_month:
@@ -177,6 +192,9 @@ def update_csv_file(file_path):
                 if fetch_month > 12:
                     fetch_month = 1
                     fetch_year += 1
+
+        # Deduplicate while preserving order (in case TEMP WORKAROUND added an entry already present)
+        months_to_fetch = list(dict.fromkeys(months_to_fetch))
 
         print(f"  Fetching data for {len(months_to_fetch)} months...")
 
